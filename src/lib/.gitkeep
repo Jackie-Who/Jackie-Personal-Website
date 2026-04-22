@@ -1,0 +1,5 @@
+# Server utilities (Phase 5)
+# db.ts — Turso/SQLite client
+# r2.ts — Cloudflare R2 upload/delete
+# auth.ts — Session management
+# exif.ts — EXIF extraction on photo upload

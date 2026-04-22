@@ -1,0 +1,111 @@
+---
+import '@/styles/globals.css';
+import { ClientRouter } from 'astro:transitions';
+
+interface Props {
+  title?: string;
+  description?: string;
+  pathname?: string;
+  bodyClass?: string;
+  themeColor?: string;
+}
+
+const {
+  title = 'Jackie Hu — IT Engineer / Musician / Photographer',
+  description = "Yi Fei (Jackie) Hu — IT Support Engineer at Amazon, classical flutist, and photographer based in Langley, BC. A personal portfolio split between technology and creativity.",
+  pathname = Astro.url.pathname,
+  bodyClass = '',
+  themeColor = '#fafafa',
+} = Astro.props;
+
+const canonicalURL = new URL(pathname, Astro.site ?? Astro.url);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="theme-color" content={themeColor} />
+    <meta name="color-scheme" content="light dark" />
+
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalURL} />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalURL} />
+    <meta property="og:site_name" content="Jackie Hu" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Favicon placeholder -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- Font loading — display=swap keeps text visible during load -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Alex+Brush&family=Bodoni+Moda:wght@500&family=Cardo&family=Caveat:wght@500&family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=DM+Serif+Display&family=Dancing+Script:wght@500&family=Forum&family=Fraunces:wght@500&family=Great+Vibes&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=Italiana&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&family=Kaushan+Script&family=Lobster&family=Marcellus&family=Parisienne&family=Pinyon+Script&family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&family=Sacramento&family=Satisfy&family=Tangerine:wght@700&family=Yellowtail&family=Yeseva+One&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Alex+Brush&family=Bodoni+Moda:wght@500&family=Cardo&family=Caveat:wght@500&family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=DM+Serif+Display&family=Dancing+Script:wght@500&family=Forum&family=Fraunces:wght@500&family=Great+Vibes&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=Italiana&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&family=Kaushan+Script&family=Lobster&family=Marcellus&family=Parisienne&family=Pinyon+Script&family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&family=Sacramento&family=Satisfy&family=Tangerine:wght@700&family=Yellowtail&family=Yeseva+One&display=swap"
+    />
+
+    <!-- Structured data: Person schema -->
+    <script
+      is:inline
+      type="application/ld+json"
+      set:html={JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'Person',
+        name: 'Yi Fei (Jackie) Hu',
+        alternateName: 'Jackie Hu',
+        jobTitle: 'IT Support Engineer',
+        worksFor: { '@type': 'Organization', name: 'Amazon' },
+        address: {
+          '@type': 'PostalAddress',
+          addressLocality: 'Langley',
+          addressRegion: 'BC',
+          addressCountry: 'CA',
+        },
+        url: canonicalURL.toString(),
+        sameAs: ['https://github.com/Jackie-Who'],
+      })}
+    />
+
+    <!-- Client-side router — intercepts navigations so the browser
+         never renders a blank/default frame between pages. Combined
+         with the swipe overlays on tech/creative, the back button
+         plays its outgoing animation and swaps DOM atomically with
+         the hero's first paint. No white flash. -->
+    <ClientRouter />
+  </head>
+  <body class={bodyClass}>
+    <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:text-black focus:px-3 focus:py-1 focus:rounded">
+      Skip to content
+    </a>
+    <slot />
+  </body>
+</html>
+
+<style is:global>
+  /* Screen-reader-only utility — Tailwind ships this, but keep as backup */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+</style>

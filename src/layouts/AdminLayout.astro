@@ -1,0 +1,198 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { isAuthenticated } from '@/lib/auth';
+
+interface Props {
+  title: string;
+  active: 'photos' | 'music';
+}
+
+const { title, active } = Astro.props;
+
+// Gate every admin page. Redirect to /admin/login on failure.
+let authed = false;
+try {
+  authed = await isAuthenticated(Astro.cookies);
+} catch {
+  authed = false;
+}
+if (!authed) {
+  return Astro.redirect('/admin/login');
+}
+---
+<BaseLayout title={`${title} · Admin`} description={`Admin ${title.toLowerCase()}`} themeColor="#0b0f18" bodyClass="admin-body">
+  <div class="admin-shell">
+    <aside class="admin-sidebar">
+      <div class="admin-brand">
+        <span class="admin-brand-label">Jackie · Admin</span>
+      </div>
+      <nav class="admin-nav">
+        <a href="/admin/photos" class:list={['admin-nav-link', active === 'photos' && 'is-active']}>Photos</a>
+        <a href="/admin/music" class:list={['admin-nav-link', active === 'music' && 'is-active']}>Music</a>
+      </nav>
+      <div class="admin-side-foot">
+        <a href="/" class="admin-nav-link admin-nav-link-quiet">View site ↗</a>
+        <form method="POST" action="/api/auth/logout" style="display:inline">
+          <button type="submit" class="admin-nav-link admin-nav-link-quiet" style="background:none;border:0;cursor:pointer;padding:0;font:inherit;text-align:left;">Sign out</button>
+        </form>
+      </div>
+    </aside>
+    <main class="admin-main">
+      <slot />
+    </main>
+  </div>
+</BaseLayout>
+
+<style is:global>
+  .admin-body { background: #0a0b14; color: #e8ecf4; }
+  .admin-shell {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    min-height: 100vh;
+  }
+  .admin-sidebar {
+    padding: 22px 16px;
+    border-right: 0.5px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .admin-brand-label {
+    font-size: 0.72rem;
+    color: rgba(232, 236, 244, 0.5);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .admin-nav { display: flex; flex-direction: column; gap: 2px; }
+  .admin-nav-link {
+    display: block;
+    padding: 8px 10px;
+    color: rgba(232, 236, 244, 0.75);
+    text-decoration: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    transition: background 160ms ease, color 160ms ease;
+  }
+  .admin-nav-link:hover { background: rgba(255, 255, 255, 0.04); color: #fff; }
+  .admin-nav-link.is-active { background: rgba(122, 176, 216, 0.12); color: #cfe3f5; }
+  .admin-nav-link-quiet { color: rgba(232, 236, 244, 0.4); font-size: 0.8rem; }
+  .admin-side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 2px; }
+  .admin-main { padding: 28px 36px 48px; min-width: 0; }
+  .admin-main h1 { font-size: 1.6rem; margin: 0 0 20px; font-weight: 500; letter-spacing: -0.01em; }
+
+  /* Form atoms reused by both managers */
+  .admin-form { display: flex; flex-direction: column; gap: 14px; }
+  .admin-label { display: flex; flex-direction: column; gap: 6px; font-size: 0.8rem; color: rgba(232, 236, 244, 0.7); }
+  .admin-input, .admin-select, .admin-textarea {
+    width: 100%;
+    padding: 9px 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 0.5px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: #fff;
+    font-size: 0.92rem;
+    font-family: inherit;
+  }
+  .admin-input:focus, .admin-select:focus, .admin-textarea:focus {
+    outline: none;
+    border-color: rgba(122, 176, 216, 0.55);
+    background: rgba(255, 255, 255, 0.06);
+  }
+  .admin-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .admin-btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 0.5px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-family: inherit;
+    transition: background 160ms ease;
+  }
+  .admin-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.09); }
+  .admin-btn:disabled { opacity: 0.5; cursor: default; }
+  .admin-btn-primary {
+    background: #5a9fd4;
+    border-color: rgba(122, 176, 216, 0.5);
+  }
+  .admin-btn-primary:hover:not(:disabled) { background: #6aabe0; }
+  .admin-btn-danger {
+    background: rgba(237, 66, 69, 0.14);
+    border-color: rgba(237, 66, 69, 0.35);
+    color: #f4a4a5;
+  }
+  .admin-btn-danger:hover:not(:disabled) { background: rgba(237, 66, 69, 0.22); }
+  .admin-error {
+    padding: 10px 12px;
+    background: rgba(237, 66, 69, 0.12);
+    border: 0.5px solid rgba(237, 66, 69, 0.35);
+    border-radius: 6px;
+    color: #f4a4a5;
+    font-size: 0.85rem;
+  }
+  .admin-notice {
+    padding: 10px 12px;
+    background: rgba(122, 176, 216, 0.08);
+    border: 0.5px solid rgba(122, 176, 216, 0.3);
+    border-radius: 6px;
+    color: #cfe3f5;
+    font-size: 0.85rem;
+    margin-bottom: 18px;
+  }
+  .admin-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 24px;
+  }
+  .admin-list-item {
+    display: grid;
+    grid-template-columns: 56px 1fr auto auto;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 0.5px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+  }
+  .admin-list-thumb {
+    width: 56px;
+    height: 56px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.04);
+    object-fit: cover;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(232, 236, 244, 0.35);
+    font-size: 0.7rem;
+  }
+  .admin-list-title { font-size: 0.95rem; font-weight: 500; margin: 0 0 2px; }
+  .admin-list-meta { font-size: 0.78rem; color: rgba(232, 236, 244, 0.55); }
+  .admin-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+  }
+  .admin-badge-live { background: rgba(35, 165, 90, 0.18); color: #7fe2a9; }
+  .admin-badge-draft { background: rgba(255, 255, 255, 0.06); color: rgba(232, 236, 244, 0.6); }
+  .admin-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  .admin-section {
+    background: rgba(255, 255, 255, 0.02);
+    border: 0.5px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    padding: 20px 22px;
+    margin-bottom: 22px;
+  }
+  .admin-section h2 { margin: 0 0 14px; font-size: 1rem; font-weight: 500; color: rgba(232, 236, 244, 0.85); }
+</style>

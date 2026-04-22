@@ -1,0 +1,80 @@
+/* ==========================================================
+   Cat mark — Jackie's branding glyph.
+
+   Colors are driven entirely by CSS custom properties so the
+   mark picks up the surrounding theme:
+     --cat-accent : ears, nose, winks (accent color)
+     --cat-eye    : default eye glyph color
+   The consuming context sets these; CatMark itself stays neutral.
+   ========================================================== */
+
+.cat-mark {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  line-height: 1;
+  user-select: none;
+}
+
+.cat-mark-ears {
+  display: flex;
+  justify-content: center;
+  gap: 22px;
+  font-size: 1.3rem;
+  color: var(--cat-accent, currentColor);
+  font-weight: 500;
+  transform: translateY(4px);
+  transition: color 500ms ease;
+}
+
+.cat-mark-face {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  font-size: 1.3rem;
+}
+
+.cat-mark-eye {
+  color: var(--cat-eye, currentColor);
+  display: inline-block;
+  min-width: 0.6em;
+  text-align: center;
+  transform-origin: center;
+  transition:
+    color 260ms ease,
+    transform 140ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Blink — quick vertical squash */
+.cat-mark-eye-blinking {
+  transform: scaleY(0.05);
+}
+
+/* Wink — cursor proximity. The glyph itself changes to > or <
+   via React state; we add a tiny color hint + scale bump. */
+.cat-mark-eye-winking {
+  color: var(--cat-accent, currentColor);
+  transform: scale(1.08);
+}
+
+.cat-mark-nose {
+  color: var(--cat-accent, currentColor);
+  font-size: 1.05rem;
+  font-weight: 500;
+  transform: translateY(1px);
+  transition: color 500ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cat-mark-eye,
+  .cat-mark-ears,
+  .cat-mark-nose {
+    transition: none;
+  }
+  .cat-mark-eye-blinking {
+    transform: none;
+  }
+}

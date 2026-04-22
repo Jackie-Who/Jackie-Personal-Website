@@ -1,0 +1,29 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import MusicManager from '@/components/admin/MusicManager';
+import { isR2Configured } from '@/lib/r2';
+import { isDbReady } from '@/lib/db';
+
+export const prerender = false;
+
+const r2Ready = isR2Configured();
+let dbReady = false;
+try {
+  dbReady = await isDbReady();
+} catch {
+  dbReady = false;
+}
+---
+<AdminLayout title="Music" active="music">
+  <div class="admin-header">
+    <h1>Music</h1>
+  </div>
+  {(!r2Ready || !dbReady) && (
+    <div class="admin-notice">
+      {!dbReady ? 'Turso DB is not reachable / schema missing. ' : ''}
+      {!r2Ready ? 'Cloudflare R2 is not configured. ' : ''}
+      Upload and edit will fail until these are set up — see <code>.env.example</code> and <code>migrations/0001_init.sql</code>.
+    </div>
+  )}
+  <MusicManager client:load />
+</AdminLayout>

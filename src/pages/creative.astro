@@ -1,0 +1,73 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import CreativePortfolio from '@/components/creative/CreativePortfolio';
+import { loadPhotos, loadTracks } from '@/content/loader';
+
+// Server-render so newly published content appears without a rebuild.
+// Loader falls back to the static placeholder arrays when Turso/R2
+// aren't configured yet, so this stays functional in Phases 1–4.
+export const prerender = false;
+
+const [photos, tracks] = await Promise.all([loadPhotos(), loadTracks()]);
+---
+
+<BaseLayout
+  title="Jackie — Creative"
+  description="Classical flutist and photographer. Live performances, solo recordings, and photography galleries."
+  themeColor="#0e0a12"
+  bodyClass="creative-body"
+>
+  <main id="main">
+    <CreativePortfolio photos={photos} tracks={tracks} client:only="react" />
+    <noscript>
+      <div class="creative-noscript">
+        <h1>Jackie</h1>
+        <p>Creative portfolio — flute and photography.</p>
+        <p><a href="/">← back to hero</a></p>
+      </div>
+    </noscript>
+  </main>
+</BaseLayout>
+
+<style is:global>
+  .creative-body,
+  .creative-body main {
+    margin: 0;
+    padding: 0;
+    background: #0e0a12;
+  }
+</style>
+
+<style>
+  .creative-noscript {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: #c8a0b8;
+    font-family: 'Playfair Display', Georgia, serif;
+    font-style: italic;
+    text-align: center;
+    padding: 24px;
+  }
+
+  .creative-noscript h1 {
+    margin: 0;
+    font-weight: 400;
+    font-size: 1.75rem;
+  }
+
+  .creative-noscript p {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #9a7898;
+  }
+
+  .creative-noscript a {
+    color: #d4a0cc;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+</style>

@@ -1,0 +1,61 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import LoginForm from '@/components/admin/LoginForm';
+import { isAuthenticated } from '@/lib/auth';
+
+export const prerender = false;
+
+// Already logged in? Go straight to /admin.
+if (await safeIsAuth(Astro.cookies)) {
+  return Astro.redirect('/admin');
+}
+
+async function safeIsAuth(cookies: Astro.cookies) {
+  try {
+    return await isAuthenticated(cookies);
+  } catch {
+    return false;
+  }
+}
+---
+<BaseLayout title="Admin login" description="Admin login" themeColor="#0b0f18" bodyClass="admin-login-body">
+  <main class="admin-login">
+    <div class="admin-login-card">
+      <h1 class="admin-login-title">Admin</h1>
+      <p class="admin-login-sub">Sign in to manage photos + music.</p>
+      <LoginForm client:load />
+    </div>
+  </main>
+</BaseLayout>
+
+<style is:global>
+  .admin-login-body {
+    background: #0a0b14;
+    color: #e8ecf4;
+  }
+  .admin-login {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+  }
+  .admin-login-card {
+    width: min(420px, 100%);
+    padding: 32px 28px 28px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 0.5px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    backdrop-filter: blur(12px) saturate(150%);
+  }
+  .admin-login-title {
+    font-size: 1.6rem;
+    margin: 0 0 4px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+  .admin-login-sub {
+    font-size: 0.85rem;
+    color: rgba(232, 236, 244, 0.55);
+    margin: 0 0 22px;
+  }
+</style>

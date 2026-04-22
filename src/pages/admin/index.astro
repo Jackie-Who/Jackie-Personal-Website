@@ -1,0 +1,14 @@
+---
+import { isAuthenticated } from '@/lib/auth';
+
+export const prerender = false;
+
+// Bounce to /admin/photos when signed in, /admin/login otherwise.
+let authed = false;
+try {
+  authed = await isAuthenticated(Astro.cookies);
+} catch {
+  authed = false;
+}
+return Astro.redirect(authed ? '/admin/photos' : '/admin/login');
+---

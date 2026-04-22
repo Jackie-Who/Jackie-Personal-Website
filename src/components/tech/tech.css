@@ -1,0 +1,1242 @@
+/* ==========================================================
+   Tech portfolio — scroll-snap layout, monospace typography.
+
+   Color tokens reference globals.css variables where possible; a few
+   intermediate tones are hard-coded to match the spec's text hierarchy
+   exactly.
+   ========================================================== */
+
+.tech-app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+  background: var(--tech-bg);
+  color: var(--tech-text);
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  /* Short content fade-in — the hero's panel expansion already landed us
+     on matching dark bg, so we only need to reveal text crisply. */
+  animation: tech-fade-in 280ms ease forwards;
+}
+
+.tech-app[data-leaving] {
+  animation: none;
+  pointer-events: none;
+}
+
+/* Push the tech content to the right and fade it as the return
+   overlay swipes in from the left. Anchored to top-level tech-app
+   children so the overlay itself isn't affected. */
+.tech-app[data-leaving] > .tech-snap,
+.tech-app[data-leaving] > .tech-nav,
+.tech-app[data-leaving] > .tech-dots {
+  animation: tech-push-right 600ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes tech-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes tech-push-right {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100vw);
+    opacity: 0;
+  }
+}
+
+/* -------------------------------------------------------
+   Return overlay — the hero's three panels, sliding in
+   from off-screen left to push /tech away.
+   ------------------------------------------------------- */
+.tech-return-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  z-index: 50;
+  pointer-events: none;
+  transform: translateX(-100vw);
+  animation: tech-return-swipe 600ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes tech-return-swipe {
+  from { transform: translateX(-100vw); }
+  to   { transform: translateX(0); }
+}
+
+.tech-return-panel {
+  height: 100%;
+}
+
+.tech-return-panel-creative {
+  flex: 0.382;
+  background: #1a1020;
+}
+
+.tech-return-panel-center {
+  flex: 0.236;
+  background: #fafafa;
+}
+
+.tech-return-panel-tech {
+  flex: 0.382;
+  background: #080c16;
+}
+
+/* --------------------------------------------------------
+   Top nav
+   -------------------------------------------------------- */
+.tech-nav {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 32px;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.tech-back,
+.tech-sig {
+  pointer-events: auto;
+}
+
+.tech-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--tech-text-muted);
+  padding: 7px 16px;
+  border: 0.5px solid rgba(200, 220, 255, 0.12);
+  border-radius: 16px;
+  cursor: pointer;
+  /* Apple glass — translucent tint over backdrop blur, subtle top
+     highlight like light catching a curved glass edge. */
+  background: rgba(30, 42, 60, 0.28);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow:
+    inset 0 0.5px 0 rgba(200, 220, 255, 0.18),
+    0 8px 24px -10px rgba(0, 0, 0, 0.35);
+  transition: color 300ms ease, border-color 300ms ease, background 300ms ease, transform 300ms ease;
+  text-decoration: none;
+  font-family: inherit;
+}
+
+.tech-back:hover,
+.tech-back:focus-visible {
+  color: var(--tech-signature);
+  border-color: rgba(122, 176, 216, 0.35);
+  background: rgba(90, 159, 212, 0.14);
+  transform: translateY(-1px);
+}
+
+.tech-back-arrow {
+  transform: translateY(-1px);
+}
+
+.tech-sig {
+  font-size: 0.95rem;
+  color: var(--tech-signature);
+  letter-spacing: 0.02em;
+}
+
+/* --------------------------------------------------------
+   Right dot nav
+   -------------------------------------------------------- */
+.tech-dots {
+  position: absolute;
+  right: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 20;
+}
+
+.tech-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--tech-border);
+  cursor: pointer;
+  border: 0;
+  padding: 0;
+  transition: background 300ms ease, transform 300ms ease;
+}
+
+.tech-dot:hover {
+  background: #2a4060;
+}
+
+.tech-dot:focus-visible {
+  outline: 2px solid var(--tech-accent);
+  outline-offset: 3px;
+}
+
+.tech-dot-active {
+  background: var(--tech-accent);
+  transform: scale(1.4);
+}
+
+/* --------------------------------------------------------
+   Scroll snap container
+   -------------------------------------------------------- */
+.tech-snap {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+}
+
+.tech-snap-section {
+  min-height: 100%;
+  scroll-snap-align: start;
+  padding: 80px clamp(32px, 5vw, 72px) 56px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+}
+
+/* --------------------------------------------------------
+   Resume section
+   -------------------------------------------------------- */
+.tech-resume {
+  max-width: 1240px;
+  width: 100%;
+  margin: 0 auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.tech-resume-head {
+  margin-bottom: 28px;
+}
+
+.tech-resume-name {
+  font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+  color: var(--tech-text);
+  font-weight: 400;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.tech-resume-title {
+  font-size: 0.85rem;
+  color: var(--tech-text-muted);
+  margin: 6px 0 18px;
+  letter-spacing: 0.01em;
+}
+
+.tech-resume-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 0;
+  list-style: none;
+  margin: 0;
+}
+
+.tech-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: #5a8ab0;
+  padding: 6px 13px;
+  border: 0.5px solid rgba(200, 220, 255, 0.12);
+  border-radius: 12px;
+  transition: color 300ms ease, border-color 300ms ease, background 300ms ease, transform 300ms ease;
+  text-decoration: none;
+  font-family: inherit;
+  /* Apple glass button */
+  background: rgba(30, 42, 60, 0.25);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  box-shadow:
+    inset 0 0.5px 0 rgba(200, 220, 255, 0.16),
+    0 6px 18px -8px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+
+.tech-link:hover,
+.tech-link:focus-visible {
+  color: var(--tech-accent);
+  border-color: rgba(122, 176, 216, 0.35);
+  background: rgba(90, 159, 212, 0.14);
+  transform: translateY(-1px);
+}
+
+.tech-link-copy.tech-link-copied,
+.tech-link-copy[aria-pressed='true'] {
+  color: #6aa884;
+  border-color: rgba(106, 168, 132, 0.4);
+  background: rgba(106, 168, 132, 0.06);
+}
+
+/* Experience + sidebar */
+.tech-resume-cols {
+  display: flex;
+  gap: 40px;
+  flex: 1;
+  align-items: flex-start;
+}
+
+.tech-resume-main {
+  flex: 1.6;
+  min-width: 0;
+}
+
+.tech-resume-side {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.tech-resume-lb {
+  font-size: 0.65rem;
+  color: #3a5070;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  margin: 0 0 10px;
+  font-weight: 400;
+}
+
+/* Scrollable experience pane — keeps scroll contained when cursor is
+   inside the list. Outside the pane the outer scroll-snap takes over
+   and advances to the next page. */
+.tech-exp-scroll {
+  max-height: 56vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 14px 2px 2px;
+  margin-right: -14px;
+  scroll-behavior: smooth;
+  /* Fade top/bottom edges to signal more content */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 18px,
+    #000 calc(100% - 18px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 18px,
+    #000 calc(100% - 18px),
+    transparent 100%
+  );
+}
+
+.tech-exp-scroll::-webkit-scrollbar {
+  width: 3px;
+}
+.tech-exp-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.tech-exp-scroll::-webkit-scrollbar-thumb {
+  background: var(--tech-border);
+  border-radius: 2px;
+}
+.tech-exp-scroll::-webkit-scrollbar-thumb:hover {
+  background: #2a4060;
+}
+.tech-exp-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--tech-border) transparent;
+}
+.tech-exp-scroll:focus-visible {
+  outline: 2px solid rgba(90, 159, 212, 0.3);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.tech-exp {
+  padding: 0 0 14px;
+  border-bottom: 0.5px solid #0e1824;
+  margin-bottom: 14px;
+}
+
+.tech-exp:first-child {
+  padding-top: 2px;
+}
+
+.tech-exp:last-child {
+  border-bottom: 0;
+  margin-bottom: 0;
+}
+
+.tech-exp-role {
+  font-size: 0.95rem;
+  color: var(--tech-text-secondary);
+  margin: 0;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.tech-exp-co {
+  font-size: 0.72rem;
+  color: var(--tech-text-muted);
+  margin: 3px 0 0;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.tech-exp-dot {
+  opacity: 0.6;
+}
+
+.tech-exp-notes {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--tech-text-faint);
+}
+
+.tech-exp-notes li {
+  font-size: 0.72rem;
+  line-height: 1.6;
+  position: relative;
+  padding-left: 12px;
+  margin-bottom: 3px;
+}
+
+.tech-exp-notes li::before {
+  content: '·';
+  position: absolute;
+  left: 2px;
+  top: -1px;
+  color: #2a3a50;
+}
+
+/* Per-experience skill tags — sits under the notes for each role */
+.tech-exp-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 0;
+  list-style: none;
+  margin: 10px 0 0;
+}
+
+/* Education / certs / skills sidebar */
+.tech-edu-school,
+.tech-edu-degree,
+.tech-edu-period {
+  margin: 0;
+  font-size: 0.78rem;
+}
+.tech-edu-school {
+  color: var(--tech-text-secondary);
+}
+.tech-edu-degree {
+  color: var(--tech-text-faint);
+  margin-top: 3px;
+}
+.tech-edu-period {
+  color: var(--tech-text-muted);
+  margin-top: 3px;
+  font-size: 0.7rem;
+}
+
+.tech-cert-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.tech-cert-list li {
+  font-size: 0.72rem;
+  color: var(--tech-text-faint);
+  margin-bottom: 3px;
+}
+
+.tech-skill-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.tech-skill {
+  font-size: 0.65rem;
+  /* Soft code-green for skill tags so they pop against the blue
+     tech-text palette without being loud. */
+  color: #8fbf7d;
+  padding: 4px 10px;
+  background: rgba(143, 191, 125, 0.06);
+  border: 0.5px solid rgba(143, 191, 125, 0.22);
+  border-radius: 8px;
+  transition: color 300ms ease, border-color 300ms ease, background 300ms ease;
+}
+
+.tech-skill:hover {
+  color: #a8d296;
+  border-color: rgba(143, 191, 125, 0.48);
+  background: rgba(143, 191, 125, 0.1);
+}
+
+/* Metric cards */
+.tech-metrics {
+  display: flex;
+  gap: 14px;
+  margin: 12px 0 4px;
+  flex-wrap: wrap;
+}
+
+.tech-metric {
+  flex: 1;
+  min-width: 110px;
+  background: var(--tech-surface);
+  border: 0.5px solid var(--tech-border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  text-align: center;
+}
+
+.tech-metric-value {
+  font-size: 1.25rem;
+  color: var(--tech-accent);
+  font-weight: 500;
+}
+
+.tech-metric-label {
+  font-size: 0.625rem;
+  color: var(--tech-text-faint);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.tech-metric-avg {
+  font-size: 0.55rem;
+  color: #2a4060;
+  margin-top: 3px;
+  letter-spacing: 0.03em;
+}
+
+/* Scroll hint — hugs the bottom of the viewport so it never overlaps
+   the scrollable experience pane above. Same color family as the
+   experience body copy so it reads as a proper visible hint. */
+.tech-scroll-hint {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.7rem;
+  color: var(--tech-text-faint);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.tech-scroll-arrow {
+  display: inline-block;
+  animation: tech-bob 1.6s ease-in-out infinite;
+}
+
+@keyframes tech-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(4px); }
+}
+
+/* --------------------------------------------------------
+   Project section
+   -------------------------------------------------------- */
+.tech-pj {
+  max-width: 1240px;
+  width: 100%;
+  margin: 0 auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.tech-pj-head {
+  margin-bottom: 28px;
+}
+
+.tech-pj-num {
+  font-size: 0.72rem;
+  color: #2a4060;
+  letter-spacing: 0.2em;
+  margin: 0 0 10px;
+}
+
+.tech-pj-title {
+  font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+  color: var(--tech-text);
+  font-weight: 400;
+  margin: 0 0 6px;
+  letter-spacing: -0.01em;
+}
+
+.tech-pj-tagline {
+  font-size: 0.85rem;
+  color: var(--tech-text-muted);
+  font-style: italic;
+  margin: 0;
+}
+
+.tech-pj-body {
+  display: flex;
+  gap: 40px;
+  flex: 1;
+  align-items: flex-start;
+}
+
+.tech-pj-visual-col {
+  flex: 1.1;
+  min-width: 0;
+}
+
+.tech-pj-details {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.tech-pj-description {
+  font-size: 0.82rem;
+  color: #6c8ea6;
+  line-height: 1.65;
+  margin: 0;
+}
+
+.tech-pj-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.tech-pj-feature {
+  background: var(--tech-surface);
+  border: 0.5px solid var(--tech-border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.tech-pj-feature-title {
+  font-size: 0.75rem;
+  color: var(--tech-text-secondary);
+  margin: 0 0 5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.tech-pj-feature-blurb {
+  font-size: 0.7rem;
+  color: #5a7890;
+  margin: 0;
+  line-height: 1.55;
+}
+
+.tech-pj-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tech-pj-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.tech-pj-stack-tag {
+  font-size: 0.65rem;
+  color: var(--tech-accent);
+  padding: 4px 10px;
+  background: #0a1520;
+  border: 0.5px solid #15253a;
+  border-radius: 8px;
+}
+
+.tech-pj-links {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tech-pj-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  color: var(--tech-text-secondary);
+  padding: 7px 14px;
+  background: var(--tech-surface);
+  border: 0.5px solid var(--tech-border);
+  border-radius: 14px;
+  text-decoration: none;
+  transition: color 300ms ease, border-color 300ms ease, background 300ms ease;
+}
+
+.tech-pj-link:hover,
+.tech-pj-link:focus-visible {
+  color: var(--tech-accent);
+  border-color: #2a4060;
+  background: rgba(90, 159, 212, 0.06);
+}
+
+.tech-pj-link-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.tech-pj-link-ext {
+  width: 12px;
+  height: 12px;
+  opacity: 0.6;
+}
+
+/* Terminal visual */
+.tech-pj-visual {
+  width: 100%;
+}
+
+.tech-pj-terminal {
+  background: #060a12;
+  border: 0.5px solid var(--tech-border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 24px 48px -24px rgba(0, 0, 0, 0.6);
+}
+
+.tech-pj-terminal-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 14px;
+  border-bottom: 0.5px solid var(--tech-border);
+  background: #080c16;
+}
+
+.tech-pj-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #1a2a3a;
+}
+
+.tech-pj-terminal-label {
+  margin-left: auto;
+  font-size: 0.65rem;
+  color: var(--tech-text-muted);
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+}
+
+.tech-pj-terminal-body {
+  margin: 0;
+  padding: 18px 20px;
+  font-family: inherit;
+  font-size: 0.72rem;
+  line-height: 1.7;
+  color: var(--tech-text-muted);
+  white-space: pre-wrap;
+}
+
+.tech-pj-t-cmd    { color: var(--tech-text-secondary); }
+.tech-pj-t-meta   { color: #3a5070; }
+.tech-pj-t-model  { color: var(--tech-accent); font-weight: 500; }
+.tech-pj-t-model-alt { color: #c8a0b8; font-weight: 500; }
+.tech-pj-t-resp   { color: var(--tech-text); }
+.tech-pj-t-budget { color: #5a8ab0; font-style: italic; }
+.tech-pj-t-warn   { color: #c7a060; }
+.tech-pj-t-ok     { color: #6aa884; }
+
+/* --------------------------------------------------------
+   Responsive — stacks below 900px
+   -------------------------------------------------------- */
+@media (max-width: 900px) {
+  .tech-resume-cols,
+  .tech-pj-body {
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .tech-dots {
+    display: none;
+  }
+
+  .tech-snap-section {
+    padding: 70px 24px 48px;
+  }
+
+  .tech-scroll-hint {
+    bottom: 12px;
+  }
+}
+
+/* --------------------------------------------------------
+   Landing section — two-phase layout
+   Phase 'intro'  : intro centered full-bleed, details hidden
+   Phase 'landing': intro shifts left, details scroll pane fades in
+   -------------------------------------------------------- */
+
+.tech-snap-section-landing {
+  padding: 80px 0 56px;
+  /* Full-width so landing can host its own two-column grid */
+}
+
+.tech-landing {
+  --tech-landing-gap: clamp(28px, 5vw, 64px);
+
+  position: relative;
+  display: grid;
+  /* Three tracks: left gutter | intro | right gutter/details.
+     Intro phase:   1fr | 380px | 1fr     — balanced fillers, intro dead center
+     Landing phase: 0fr | 380px | 1fr     — left gutter collapses, details fills right
+     Animating the grid tracks slides the intro smoothly from center
+     to left instead of snapping. */
+  grid-template-columns: 1fr clamp(280px, 28vw, 380px) 1fr;
+  column-gap: 0;
+  align-items: center;
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 clamp(32px, 5vw, 72px);
+  flex: 1;
+  transition:
+    grid-template-columns 280ms cubic-bezier(0.4, 0, 0.2, 1),
+    column-gap 280ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tech-landing[data-phase='landing'] {
+  grid-template-columns: 0fr clamp(280px, 28vw, 380px) 1fr;
+  column-gap: var(--tech-landing-gap);
+}
+
+/* Local cat palette inside landing */
+.tech-landing .cat-mark {
+  --cat-accent: var(--tech-accent);
+  --cat-eye: var(--tech-text);
+}
+
+/* Intro sits in the middle grid track; content alignment flips
+   from centered (intro phase) to left (landing phase) on a tiny
+   delay so it snaps while the track itself is still moving. */
+.tech-landing-intro {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 20px;
+  transition: align-items 0ms linear 180ms, text-align 0ms linear 180ms;
+}
+
+.tech-landing[data-phase='landing'] .tech-landing-intro {
+  align-items: flex-start;
+  text-align: left;
+}
+
+.tech-landing-greeting {
+  display: flex;
+  flex-direction: column;
+  align-items: inherit;
+  gap: 6px;
+}
+
+.tech-landing-hi {
+  font-size: 0.88rem;
+  color: var(--tech-text-muted);
+  letter-spacing: 0.14em;
+  text-transform: lowercase;
+}
+
+.tech-landing-name {
+  font-size: clamp(2.4rem, 5.2vw, 3.6rem);
+  color: var(--tech-text);
+  font-weight: 500;
+  margin: 0;
+  letter-spacing: -0.02em;
+  line-height: 0.95;
+}
+
+.tech-landing-description {
+  font-size: clamp(0.9rem, 1.1vw, 1rem);
+  color: var(--tech-text-secondary);
+  line-height: 1.7;
+  max-width: 340px;
+  margin: 0;
+}
+
+/* Details sits in the third grid track. In intro phase that track is
+   0fr, so the pane collapses. We also fade it so it doesn't flash in
+   at the start. */
+.tech-landing-details {
+  grid-column: 3;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateX(12px);
+  transition:
+    opacity 260ms ease 120ms,
+    transform 320ms cubic-bezier(0.4, 0, 0.2, 1) 100ms;
+  /* Leave extra room at the bottom for the scroll hint so it doesn't
+     overlap the experience pane. */
+  max-height: calc(100vh - 200px);
+  max-height: calc(100svh - 200px);
+  padding-top: 4px;
+}
+
+.tech-landing[data-phase='landing'] .tech-landing-details {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Social icon row */
+.tech-socials {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  list-style: none;
+  margin: 6px 0 0;
+  justify-content: center;
+}
+
+.tech-socials .tech-link,
+.tech-socials .tech-link-copy {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  border-radius: 50%;
+}
+
+.tech-socials .social-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.tech-link-copied .tech-link-check {
+  width: 15px;
+  height: 15px;
+  color: #6aa884;
+}
+
+.tech-landing-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 36px 22px 36px 20px;
+  scroll-behavior: smooth;
+  /* Apple-style glass panel — slight tint, heavy backdrop blur with
+     saturation boost, a hair of inner top highlight to catch the light,
+     and a soft drop shadow so it feels seated above the blob glow. */
+  background: rgba(18, 32, 52, 0.22);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 0.5px solid rgba(200, 220, 255, 0.08);
+  border-radius: 14px;
+  box-shadow:
+    inset 0 0.5px 0 rgba(200, 220, 255, 0.12),
+    inset 0 -0.5px 0 rgba(0, 0, 0, 0.25),
+    0 24px 56px -28px rgba(0, 0, 0, 0.55);
+  scrollbar-width: thin;
+  scrollbar-color: var(--tech-border) transparent;
+}
+
+.tech-landing-scroll::-webkit-scrollbar {
+  width: 3px;
+}
+.tech-landing-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.tech-landing-scroll::-webkit-scrollbar-thumb {
+  background: var(--tech-border);
+  border-radius: 2px;
+}
+.tech-landing-scroll::-webkit-scrollbar-thumb:hover {
+  background: #2a4060;
+}
+.tech-landing-scroll:focus-visible {
+  outline: 2px solid rgba(90, 159, 212, 0.3);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.tech-landing-block + .tech-landing-block {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 0.5px solid #0e1824;
+}
+
+/* --------------------------------------------------------
+   Toast — bottom center, slides up on visible
+   -------------------------------------------------------- */
+.tech-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 36px;
+  transform: translate(-50%, 24px);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  background: rgba(12, 21, 32, 0.92);
+  border: 0.5px solid var(--tech-border);
+  border-radius: 999px;
+  color: var(--tech-text);
+  font-size: 0.78rem;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 18px 48px -20px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 260ms ease, transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  z-index: 40;
+}
+
+.tech-toast-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.tech-toast-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #6aa884;
+  box-shadow: 0 0 0 3px rgba(106, 168, 132, 0.18);
+}
+
+/* --------------------------------------------------------
+   Viscous blob cursor — SVG with gooey filter
+
+   Sits at z-index 0, BEHIND .tech-snap (z-index 1). Glass
+   surfaces (backdrop-filter + semi-transparent bg) and
+   section backdrops without a solid bg let the blob's blue
+   glow through — that's the intended "ambient light behind
+   the glass" effect on the landing experience.
+
+   For a section to show the blob it must have a transparent
+   or partially-transparent background. The Discord section's
+   per-project bg is intentionally low-opacity + compositing
+   friendly so the cursor blob remains visible beneath the
+   Discord window chrome.
+   -------------------------------------------------------- */
+.tech-blob-cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+  transition: opacity 320ms ease;
+  will-change: opacity;
+}
+
+@media (hover: none) {
+  .tech-blob-cursor {
+    display: none;
+  }
+}
+
+/* --------------------------------------------------------
+   Reduced motion
+   -------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .tech-app {
+    animation: none;
+  }
+  .tech-scroll-arrow {
+    animation: none;
+  }
+  .tech-snap,
+  .tech-exp-scroll,
+  .tech-landing-scroll {
+    scroll-behavior: auto;
+  }
+  .tech-blob-cursor {
+    display: none;
+  }
+  .tech-landing,
+  .tech-landing-intro,
+  .tech-landing-details,
+  .tech-landing-name {
+    transition: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .tech-landing {
+    grid-template-columns: 1fr !important;
+    row-gap: 32px;
+  }
+  .tech-landing-details {
+    max-height: 60vh;
+    transform: none;
+  }
+  .tech-landing[data-phase='intro'] .tech-landing-details {
+    display: none;
+  }
+}
+
+/* ==========================================================
+   Showcase-layout projects
+   ==========================================================
+   Projects whose visual is a custom self-contained mockup
+   (e.g. the Discord bot window) drop the 2-col body in favor
+   of a full-width visual + compact meta strip below.
+
+   The surrounding .tech-snap-section also gets a per-project
+   background so the showcase reads as its own world, distinct
+   from the surrounding tech page palette.
+   ========================================================== */
+
+.tech-pj[data-layout='showcase'] {
+  max-width: 1200px;
+}
+
+.tech-pj[data-layout='showcase'] .tech-pj-head {
+  text-align: center;
+  margin-bottom: 22px;
+}
+.tech-pj[data-layout='showcase'] .tech-pj-num { color: #4a5770; }
+.tech-pj[data-layout='showcase'] .tech-pj-title { color: #f2f3f5; }
+.tech-pj[data-layout='showcase'] .tech-pj-tagline { color: #a6aebb; }
+
+.tech-pj[data-layout='showcase'] .tech-pj-body {
+  flex-direction: column;
+  gap: 24px;
+  align-items: stretch;
+}
+
+.tech-pj[data-layout='showcase'] .tech-pj-visual-col {
+  flex: 1 1 auto;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+/* Compact horizontal meta strip under the window. */
+.tech-pj[data-layout='showcase'] .tech-pj-details {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.tech-pj[data-layout='showcase'] .tech-pj-meta {
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.tech-pj[data-layout='showcase'] .tech-pj-stack-tag {
+  color: #a5adff;
+  background: rgba(88, 101, 242, 0.08);
+  border: 0.5px solid rgba(88, 101, 242, 0.24);
+}
+
+.tech-pj[data-layout='showcase'] .tech-pj-link {
+  color: #dbdee1;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+.tech-pj[data-layout='showcase'] .tech-pj-link:hover,
+.tech-pj[data-layout='showcase'] .tech-pj-link:focus-visible {
+  color: #fff;
+  border-color: rgba(88, 101, 242, 0.6);
+  background: rgba(88, 101, 242, 0.12);
+}
+
+/* ---- Section bg override for the Sonnet Discord Agent ----
+   Dark Blurple glow for brand identity, composited over a
+   partially-transparent tint so the global blob cursor (z-index
+   0, behind .tech-snap) stays visible beneath the section. The
+   Discord window itself is opaque and covers the blob where it
+   renders — blob shines in the surrounding margin, which is the
+   layering the viewer asked for. */
+.tech-snap-section[data-project='sonnet-discord-agent'] {
+  background:
+    radial-gradient(
+      ellipse 80% 60% at 50% 32%,
+      rgba(88, 101, 242, 0.26) 0%,
+      rgba(88, 101, 242, 0.10) 28%,
+      rgba(14, 16, 28, 0) 60%
+    ),
+    linear-gradient(180deg, rgba(10, 11, 20, 0.7) 0%, rgba(7, 8, 15, 0.82) 100%);
+  position: relative;
+  isolation: isolate;
+}
+
+/* Subtle noise texture for depth — pure CSS, no image. */
+.tech-snap-section[data-project='sonnet-discord-agent']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background-image:
+    radial-gradient(
+      circle at 20% 85%,
+      rgba(88, 101, 242, 0.12) 0%,
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 85% 15%,
+      rgba(122, 139, 255, 0.06) 0%,
+      transparent 28%
+    );
+  opacity: 0.9;
+}
+
+/* Responsive: below 900px, meta strip wraps and still stacks well. */
+@media (max-width: 900px) {
+  .tech-pj[data-layout='showcase'] .tech-pj-meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

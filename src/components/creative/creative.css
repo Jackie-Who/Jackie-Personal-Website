@@ -1,0 +1,689 @@
+/* ==========================================================
+   Creative portfolio — photo gallery + resizable music panel.
+   Palette: deep purple-black bg, muted pink/mauve accents.
+   Typography: serif italic (Playfair / Cormorant).
+   ========================================================== */
+
+.creative-app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+  background: var(--creative-bg);
+  color: var(--creative-text);
+  font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
+  animation: creative-fade-in 280ms ease forwards;
+}
+
+.creative-app[data-leaving] {
+  animation: none;
+  pointer-events: none;
+}
+
+.creative-app[data-leaving] > .creative-main,
+.creative-app[data-leaving] > .creative-nav {
+  animation: creative-push-left 600ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes creative-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Creative back-swipe goes the opposite direction from tech —
+   tech pushes right (overlay enters from left), creative pushes
+   left (overlay enters from right). Matches the hero's mental
+   model: creative lives on the left of the split, so returning
+   FROM creative means swiping LEFT back toward the hero axis. */
+@keyframes creative-push-left {
+  from { transform: translateX(0); opacity: 1; }
+  to   { transform: translateX(-100vw); opacity: 0; }
+}
+
+/* -------------------------------------------------------
+   Top nav
+   ------------------------------------------------------- */
+.creative-nav {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 32px;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.creative-back,
+.creative-sig {
+  pointer-events: auto;
+}
+
+.creative-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--creative-text-muted);
+  padding: 7px 16px;
+  border: 0.5px solid rgba(220, 180, 204, 0.14);
+  border-radius: 16px;
+  cursor: pointer;
+  font-family: inherit;
+  /* Apple glass on the creative palette — mauve-tinted instead of
+     cool blue. */
+  background: rgba(60, 40, 58, 0.28);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow:
+    inset 0 0.5px 0 rgba(220, 180, 204, 0.18),
+    0 8px 24px -10px rgba(0, 0, 0, 0.4);
+  transition: color 300ms ease, border-color 300ms ease, background 300ms ease, transform 300ms ease;
+}
+
+.creative-back:hover,
+.creative-back:focus-visible {
+  color: var(--creative-text);
+  border-color: rgba(220, 180, 204, 0.42);
+  background: rgba(200, 160, 184, 0.16);
+  transform: translateY(-1px);
+}
+
+.creative-sig {
+  font-size: 1.1rem;
+  font-style: italic;
+  color: var(--creative-signature);
+  letter-spacing: 0.01em;
+}
+
+/* -------------------------------------------------------
+   Main layout — music panel + photo stage side by side
+   ------------------------------------------------------- */
+.creative-main {
+  display: flex;
+  height: 100%;
+  padding-top: 72px;
+}
+
+.creative-stage {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 20px clamp(24px, 4vw, 56px) 40px;
+}
+
+/* -------------------------------------------------------
+   Music panel — resizable sidebar
+   ------------------------------------------------------- */
+.creative-music {
+  flex: 0 0 auto;
+  position: relative;
+  height: 100%;
+  /* Panel now lives on the RIGHT — inner divider moves accordingly. */
+  border-left: 0.5px solid var(--creative-border);
+  display: flex;
+  flex-direction: column;
+  transition: width 260ms cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.creative-music-heading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 0;
+  border-bottom: 0.5px solid var(--creative-border);
+}
+
+.creative-music-toggle {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 14px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.creative-music-toggle span {
+  display: block;
+  width: 18px;
+  height: 1.5px;
+  background: var(--creative-text-muted);
+  transition: background 300ms ease;
+}
+
+.creative-music-toggle:hover span {
+  background: var(--creative-text);
+}
+
+/* Track list */
+.creative-tracklist {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px 0;
+  list-style: none;
+  margin: 0;
+}
+
+.creative-track {
+  padding: 0;
+  margin: 0;
+}
+
+.creative-track-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 14px 9px 18px;
+  background: transparent;
+  border: 0;
+  border-left: 1.5px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background 220ms ease, border-color 260ms ease;
+}
+
+.creative-track-button:hover {
+  background: rgba(200, 160, 184, 0.04);
+}
+
+.creative-track-button:focus-visible {
+  outline: 2px solid rgba(200, 160, 184, 0.35);
+  outline-offset: -4px;
+  border-radius: 2px;
+}
+
+.creative-track-active .creative-track-button {
+  border-left-color: rgba(200, 160, 184, 0.65);
+  background: rgba(200, 160, 184, 0.06);
+}
+
+.creative-track-title {
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--creative-text-secondary);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.creative-track-active .creative-track-title {
+  color: var(--creative-text);
+}
+
+.creative-track-composer {
+  font-size: 0.68rem;
+  color: var(--creative-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 0 0 auto;
+}
+
+.creative-track-duration {
+  font-size: 0.65rem;
+  color: var(--creative-text-faint);
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-style: normal;
+}
+
+/* Pulsing dot shown when the active track is playing */
+.creative-track-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--creative-signature);
+  animation: creative-pulse 1.4s ease-in-out infinite;
+  flex: 0 0 auto;
+}
+
+@keyframes creative-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50%      { transform: scale(1.35); opacity: 0.5; }
+}
+
+/* Now playing + controls footer */
+.creative-music-footer {
+  border-top: 0.5px solid var(--creative-border);
+  padding: 12px 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.creative-music-now {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: center;
+  min-height: 2em;
+}
+
+.creative-music-now-label {
+  font-size: 0.58rem;
+  color: var(--creative-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-style: normal;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+}
+
+.creative-music-now-title {
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--creative-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.creative-music-now-composer {
+  font-size: 0.65rem;
+  color: var(--creative-text-muted);
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.creative-music-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.creative-music-btn {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--creative-text-secondary);
+  transition: background 220ms ease, color 220ms ease;
+}
+
+.creative-music-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.creative-music-btn:hover {
+  background: rgba(200, 160, 184, 0.08);
+  color: var(--creative-text);
+}
+
+.creative-music-btn-play {
+  width: 36px;
+  height: 36px;
+  background: rgba(200, 160, 184, 0.12);
+  color: var(--creative-signature);
+}
+
+.creative-music-btn-play:hover {
+  background: rgba(200, 160, 184, 0.22);
+  color: var(--creative-text);
+}
+
+/* Drag handle */
+.creative-music-handle {
+  position: absolute;
+  top: 0;
+  left: -4px;
+  bottom: 0;
+  width: 8px;
+  cursor: ew-resize;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.creative-music-handle span {
+  width: 1px;
+  height: 32px;
+  background: rgba(200, 160, 184, 0.15);
+  transition: background 260ms ease;
+}
+
+.creative-music-handle:hover span {
+  background: rgba(200, 160, 184, 0.4);
+  height: 48px;
+}
+
+/* -------------------------------------------------------
+   Spectrum
+   ------------------------------------------------------- */
+.creative-spectrum {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  height: 30px;
+  padding: 0 4px;
+}
+
+.creative-spectrum-bar {
+  flex: 1;
+  max-width: 3px;
+  height: 100%;
+  background: rgba(200, 160, 184, 0.45);
+  border-radius: 1px;
+  transform-origin: bottom;
+  transition: transform 140ms ease-out;
+}
+
+/* -------------------------------------------------------
+   Photo gallery — masonry grid
+   ------------------------------------------------------- */
+.creative-gallery {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.creative-photo-tile {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 260ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 260ms ease;
+}
+
+.creative-photo-tile-wide {
+  grid-column: span 2;
+  aspect-ratio: 2 / 1;
+}
+
+.creative-photo-tile:hover,
+.creative-photo-tile:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px -10px rgba(0, 0, 0, 0.6);
+  outline: none;
+}
+
+.creative-photo-tile-caption {
+  position: absolute;
+  left: 14px;
+  bottom: 12px;
+  font-size: 0.72rem;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 260ms ease, transform 260ms ease;
+  pointer-events: none;
+}
+
+.creative-photo-tile:hover .creative-photo-tile-caption,
+.creative-photo-tile:focus-visible .creative-photo-tile-caption {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* -------------------------------------------------------
+   Photo expanded view — scroll-snap single image
+
+   Wall color is driven by [data-bg-mode] on the scroll container.
+   Inline styles set by PhotoExpanded.tsx override the background
+   for preset colors; [data-bg-mode='blur'] activates a ::before
+   that paints a blurred copy of the active photo as the wall.
+
+   The .creative-expanded-frame wraps the scrollable view and the
+   bg-control pill so the control can stay pinned to the bottom
+   of the viewport without participating in scroll-snap.
+   ------------------------------------------------------- */
+.creative-expanded-frame {
+  position: relative;
+  height: calc(100vh - 72px);
+  height: calc(100svh - 72px);
+}
+
+.creative-expanded {
+  position: relative;
+  height: 100%;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  transition: background 260ms ease;
+  isolation: isolate;
+}
+
+/* Blur wall — fills the scroll container with a heavily-blurred
+   copy of the active photo. Sits behind the image sections via
+   z-index: -1 (stays within the isolated stacking context). */
+.creative-expanded[data-bg-mode='blur']::before {
+  content: '';
+  position: absolute;
+  inset: -40px;
+  z-index: -1;
+  background: var(--creative-wall-image, #1a1020) center / cover no-repeat;
+  filter: blur(60px) saturate(140%) brightness(0.7);
+  transition: background 280ms ease;
+  pointer-events: none;
+}
+
+/* ---- Wall-color control (pill row, anchored bottom-right) ---- */
+.creative-expanded-bg-ctrl {
+  position: absolute;
+  bottom: 18px;
+  right: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: rgba(16, 10, 20, 0.62);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  border: 0.5px solid rgba(200, 160, 184, 0.18);
+  border-radius: 999px;
+  box-shadow: 0 6px 18px -10px rgba(0, 0, 0, 0.5);
+  z-index: 4;
+}
+
+.creative-expanded-bg-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 0;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.creative-expanded-bg-swatch:hover { transform: scale(1.12); }
+.creative-expanded-bg-swatch.is-active {
+  transform: scale(1.12);
+  border-color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 2px rgba(200, 160, 184, 0.55);
+}
+.creative-expanded-bg-swatch.is-blur {
+  background: transparent;
+  overflow: hidden;
+}
+.creative-expanded-bg-swatch.is-blur svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: blur(1px);
+}
+
+.creative-expanded-section {
+  min-height: 100%;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px 0 36px;
+}
+
+.creative-expanded-image {
+  position: relative;
+  width: 90%;
+  max-width: 1200px;
+  aspect-ratio: 4 / 3;
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  padding: 24px;
+}
+
+.creative-expanded-title {
+  font-size: 1rem;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.creative-expanded-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
+  border: 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.25);
+  transition: color 220ms ease, background 220ms ease;
+}
+
+.creative-expanded-close svg {
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+}
+
+.creative-expanded-image:hover .creative-expanded-close {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.creative-expanded-close:hover,
+.creative-expanded-close:focus-visible {
+  color: rgba(255, 255, 255, 1);
+  background: rgba(0, 0, 0, 0.55);
+  outline: none;
+}
+
+.creative-expanded-exif {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  justify-content: center;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-width: 90%;
+}
+
+.creative-expanded-exif li {
+  font-size: 0.65rem;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  color: var(--creative-text-muted);
+  padding: 4px 10px;
+  border: 0.5px solid var(--creative-border);
+  border-radius: 8px;
+  background: var(--creative-surface);
+  letter-spacing: 0.04em;
+}
+
+.creative-expanded-exif-category {
+  color: var(--creative-text-secondary) !important;
+  font-style: italic;
+  font-family: 'Playfair Display', Georgia, serif !important;
+}
+
+/* -------------------------------------------------------
+   Return overlay — hero mirror for back swipe
+   ------------------------------------------------------- */
+.creative-return-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  z-index: 50;
+  pointer-events: none;
+  transform: translateX(100vw);
+  animation: creative-return-swipe 600ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Overlay enters from the RIGHT — opposite of the tech overlay
+   (which enters from the left). Paired with creative-push-left
+   so the creative content wipes out left while the hero-axis
+   swipes in from the right. */
+@keyframes creative-return-swipe {
+  from { transform: translateX(100vw); }
+  to   { transform: translateX(0); }
+}
+
+.creative-return-panel {
+  height: 100%;
+}
+
+.creative-return-panel-creative { flex: 0.382; background: #1a1020; }
+.creative-return-panel-center   { flex: 0.236; background: #fafafa; }
+.creative-return-panel-tech     { flex: 0.382; background: #080c16; }
+
+/* -------------------------------------------------------
+   Responsive
+   ------------------------------------------------------- */
+@media (max-width: 720px) {
+  .creative-gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .creative-photo-tile-wide {
+    grid-column: span 2;
+  }
+  .creative-music {
+    border-right: 0;
+    border-bottom: 0.5px solid var(--creative-border);
+    height: auto;
+    width: 100% !important;
+  }
+  .creative-main {
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .creative-app,
+  .creative-photo-tile,
+  .creative-spectrum-bar,
+  .creative-track-dot,
+  .creative-music,
+  .creative-music-toggle span {
+    animation: none !important;
+    transition: none !important;
+  }
+}

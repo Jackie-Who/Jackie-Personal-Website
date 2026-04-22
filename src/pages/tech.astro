@@ -1,0 +1,70 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import TechPortfolio from '@/components/tech/TechPortfolio';
+---
+
+<BaseLayout
+  title="Jackie — Technology"
+  description="IT Support Engineer at Amazon, AI evaluation, full-stack builder. Resume, projects, and engineering work."
+  themeColor="#080c16"
+  bodyClass="tech-body"
+>
+  <main id="main">
+    <TechPortfolio client:load />
+    <noscript>
+      <div class="tech-noscript">
+        <h1>Jackie</h1>
+        <p>IT Support Engineer / AI Evaluation / Full-Stack Builder</p>
+        <p>
+          <a href="https://github.com/Jackie-Who">GitHub</a>
+          &nbsp;·&nbsp;
+          <a href="mailto:o7.gpt4@gmail.com">Email</a>
+          &nbsp;·&nbsp;
+          <a href="/">back to hero</a>
+        </p>
+      </div>
+    </noscript>
+  </main>
+</BaseLayout>
+
+<style is:global>
+  .tech-body,
+  .tech-body main {
+    margin: 0;
+    padding: 0;
+    background: #080c16;
+  }
+</style>
+
+<style>
+  .tech-noscript {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: #c0d8f0;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    text-align: center;
+    padding: 24px;
+  }
+
+  .tech-noscript h1 {
+    margin: 0;
+    font-weight: 400;
+    font-size: 1.75rem;
+  }
+
+  .tech-noscript p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #8ab8e0;
+  }
+
+  .tech-noscript a {
+    color: #5a9fd4;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+</style>

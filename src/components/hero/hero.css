@@ -1,0 +1,862 @@
+/* ==========================================================
+   Hero page — three-layer architecture.
+
+   Layer 1 : .hero-panels        (bottom, flex-resizing)
+   Layer 2 : .hero-code           (right 38.2%, does NOT move)
+   Layer 3 : .hero-center        (fixed 38.2% → 23.6%)
+   Layer 4 : .hero-compile-flash (full bleed, z-index 15)
+   Layer 5 : .hero-hitzones      (full bleed, z-index 10)
+
+   All state is driven by [data-takeover] and [data-leaving] on .hero-app.
+   No React re-renders fire the transitions — the DOM stays stable;
+   only styles change.
+   ========================================================== */
+
+/* ----------------------------------------------------------
+   Root app shell
+   ---------------------------------------------------------- */
+.hero-app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  height: 100svh; /* small viewport — avoids mobile URL bar jump */
+  overflow: hidden;
+  background: var(--neutral-bg);
+  transition: opacity 600ms ease, filter 400ms ease;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.hero-app[data-takeover='creative'] {
+  background: #12081a;
+}
+
+.hero-app[data-takeover='tech'] {
+  background: #080c16;
+}
+
+.hero-app[data-expanding],
+.hero-app[data-returning] {
+  pointer-events: none;
+}
+
+/* Arrival fade — when returning from /tech or /creative the
+   outgoing swipe leaves the hero in neutral layout. ClientRouter
+   swaps DOM atomically so we just need a short content fade-in.
+   Scoped via the global [data-astro-transition-fallback] attribute
+   so it only fires on ClientRouter-driven navigations, not on
+   first-time direct visits. */
+[data-astro-transition-fallback] .hero-center,
+[data-astro-transition-fallback] .hero-code,
+[data-astro-transition-fallback] .hero-creative-bg,
+[data-astro-transition-fallback] .hero-panel-labels {
+  animation: hero-arrive-fade 420ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes hero-arrive-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ----------------------------------------------------------
+   Layer 1 — visual panels (flex-resizing)
+   ---------------------------------------------------------- */
+.hero-panels {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hero-panel {
+  position: relative;
+  overflow: hidden;
+  transition:
+    flex 550ms cubic-bezier(0.4, 0, 0.2, 1),
+    background 500ms ease,
+    border-color 500ms ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.hero-panel-creative {
+  flex: 0.382;
+  background: #1a1020;
+}
+
+.hero-panel-center {
+  flex: 0.236;
+  background: #fafafa;
+}
+
+.hero-panel-tech {
+  flex: 0.382;
+  background: #080c16;
+}
+
+/* Takeover ratios — the center panel flex collapses to 0 so the
+   active side meets its opposite directly at a single seam (68/0/32).
+   The side panel's own bg is the color the viewer sees, so the
+   previous separate swipe-rectangle is no longer needed. */
+.hero-app[data-takeover='creative'] .hero-panel-creative {
+  flex: 0.68;
+  background: #12081a;
+}
+.hero-app[data-takeover='creative'] .hero-panel-center {
+  flex: 0;
+}
+.hero-app[data-takeover='creative'] .hero-panel-tech {
+  flex: 0.32;
+}
+
+.hero-app[data-takeover='tech'] .hero-panel-creative {
+  flex: 0.32;
+}
+.hero-app[data-takeover='tech'] .hero-panel-center {
+  flex: 0;
+}
+.hero-app[data-takeover='tech'] .hero-panel-tech {
+  flex: 0.68;
+}
+
+/* -----------------------------------------------------
+   Expansion transition — the chosen side takes over the
+   entire viewport over ~700ms, fading the other layers.
+   Color at the end matches the destination page so the
+   browser navigation doesn't flash.
+
+   Selectors include [data-expanding='...'][data-expanding]
+   twice so specificity (0,0,4,0) beats the takeover rules
+   above (0,0,3,0) regardless of source order. */
+.hero-app[data-expanding] .hero-panel {
+  transition:
+    flex 700ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 420ms ease,
+    background 500ms ease;
+}
+
+.hero-app[data-expanding='tech'][data-expanding] .hero-panel-tech {
+  flex: 1;
+  background: #080c16;
+}
+.hero-app[data-expanding='tech'][data-expanding] .hero-panel-creative {
+  flex: 0.00001;
+  opacity: 0;
+}
+/* Center panel flips its base color to match the expanding side so the
+   white fafafa bg never peeks through as it shrinks. (opacity:0 on the
+   panel is what was causing the mid-animation white stripe — the
+   swipe pseudos fade with the parent, leaving the white base.) */
+.hero-app[data-expanding='tech'][data-expanding] .hero-panel-center {
+  flex: 0.00001;
+  background: #080c16;
+}
+
+.hero-app[data-expanding='creative'][data-expanding] .hero-panel-creative {
+  flex: 1;
+  background: #0e0a12;
+}
+.hero-app[data-expanding='creative'][data-expanding] .hero-panel-tech {
+  flex: 0.00001;
+  opacity: 0;
+}
+.hero-app[data-expanding='creative'][data-expanding] .hero-panel-center {
+  flex: 0.00001;
+  background: #0e0a12;
+}
+
+/* Fade the overlaid layers during expansion. Double [data-expanding]
+   bumps specificity to (0,0,3,0) so it beats the takeover rule on
+   .hero-code (0,0,3,0) via source order. */
+.hero-app[data-expanding][data-expanding] .hero-center,
+.hero-app[data-expanding][data-expanding] .hero-code,
+.hero-app[data-expanding][data-expanding] .hero-panel-labels {
+  opacity: 0;
+  transition: opacity 420ms ease;
+}
+
+/* Land creative on /creative page's base color, not the vid overlay */
+.hero-app[data-expanding='creative'][data-expanding] .hero-creative-vid,
+.hero-app[data-expanding='creative'][data-expanding] .hero-creative-img {
+  opacity: 0;
+  transition: opacity 420ms ease;
+}
+
+/* -----------------------------------------------------
+   Reverse expansion — coming back from /tech or /creative.
+
+   React sets data-returning='tech' (or 'creative') on first mount.
+   These keyframe animations run unconditionally while the attribute
+   is present, animating each panel FROM its expanded state TO the
+   neutral 38.2/23.6/38.2 layout. React removes the attribute ~760ms
+   later, which is fine — the keyframes used `forwards` so the last
+   frame sticks, and the default CSS already holds equivalent values.
+
+   Keyframes sidestep the React/paint timing headaches you get when
+   a transition depends on a state change that batches with the next
+   render. The browser starts the animation the moment the element
+   enters the DOM with the attribute set. */
+@keyframes hero-return-tech-tech {
+  from { flex-grow: 1; background: #080c16; }
+  to   { flex-grow: 0.382; background: #080c16; }
+}
+@keyframes hero-return-tech-creative {
+  from { flex-grow: 0.00001; opacity: 0; }
+  to   { flex-grow: 0.382; opacity: 1; }
+}
+@keyframes hero-return-tech-center {
+  from { flex-grow: 0.00001; opacity: 0; }
+  to   { flex-grow: 0.236; opacity: 1; }
+}
+
+@keyframes hero-return-creative-creative {
+  from { flex-grow: 1; background: #0e0a12; }
+  to   { flex-grow: 0.382; background: #1a1020; }
+}
+@keyframes hero-return-creative-tech {
+  from { flex-grow: 0.00001; opacity: 0; }
+  to   { flex-grow: 0.382; opacity: 1; }
+}
+@keyframes hero-return-creative-center {
+  from { flex-grow: 0.00001; opacity: 0; }
+  to   { flex-grow: 0.236; opacity: 1; }
+}
+
+@keyframes hero-return-overlay-fade-in {
+  0%   { opacity: 0; }
+  30%  { opacity: 0; }   /* wait until panels are moving meaningfully */
+  100% { opacity: 1; }
+}
+
+.hero-app[data-returning] {
+  background: #080c16;  /* safety — overridden below per side */
+}
+.hero-app[data-returning='creative'] {
+  background: #0e0a12;
+}
+
+/* Tech returning */
+.hero-app[data-returning='tech'] .hero-panel-tech {
+  animation: hero-return-tech-tech 700ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.hero-app[data-returning='tech'] .hero-panel-creative {
+  animation: hero-return-tech-creative 700ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.hero-app[data-returning='tech'] .hero-panel-center {
+  animation: hero-return-tech-center 700ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Creative returning */
+.hero-app[data-returning='creative'] .hero-panel-creative {
+  animation: hero-return-creative-creative 700ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.hero-app[data-returning='creative'] .hero-panel-tech {
+  animation: hero-return-creative-tech 700ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.hero-app[data-returning='creative'] .hero-panel-center {
+  animation: hero-return-creative-center 700ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Center anchor + code + panel labels fade in on tail end */
+.hero-app[data-returning] .hero-center,
+.hero-app[data-returning] .hero-code,
+.hero-app[data-returning] .hero-panel-labels {
+  animation: hero-return-overlay-fade-in 700ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Panel labels */
+.hero-panel-labels {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0 8px;
+}
+
+.hero-panel-label {
+  font-size: clamp(1rem, 1.4vw, 1.35rem);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  transition: color 500ms ease, opacity 500ms ease;
+}
+
+.hero-panel-sub {
+  font-size: 0.8rem;
+  margin-top: 6px;
+  opacity: 0.5;
+  letter-spacing: 0.02em;
+  transition: color 500ms ease, opacity 500ms ease;
+}
+
+.hero-panel-creative .hero-panel-label,
+.hero-panel-creative .hero-panel-sub {
+  color: #d4a0cc;
+  font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
+  font-style: italic;
+}
+
+.hero-panel-tech .hero-panel-label,
+.hero-panel-tech .hero-panel-sub {
+  color: #7ab0d8;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+}
+
+/* ----------------------------------------------------------
+   Creative background (image → video crossfade)
+   Sits INSIDE the creative panel, so it grows with the panel.
+   ---------------------------------------------------------- */
+.hero-creative-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hero-creative-img,
+.hero-creative-vid {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 500ms ease;
+}
+
+.hero-creative-img {
+  background: linear-gradient(135deg, #1a1020 0%, #2a1830 40%, #1e1428 100%);
+  opacity: 1;
+}
+
+.hero-creative-img-inner {
+  width: 70%;
+  height: 60%;
+  border-radius: 8px;
+  background: rgba(200, 125, 186, 0.08);
+  border: 0.5px solid rgba(200, 125, 186, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.hero-creative-img-label {
+  position: absolute;
+  bottom: 10px;
+  right: 14px;
+  font-size: 0.7rem;
+  color: rgba(200, 125, 186, 0.35);
+  font-family: 'Playfair Display', Georgia, serif;
+  font-style: italic;
+  letter-spacing: 0.02em;
+}
+
+.hero-creative-vid {
+  background: #12081a;
+  opacity: 0;
+}
+
+.hero-creative-vid-frame {
+  width: 70%;
+  height: 60%;
+  border-radius: 8px;
+  background: rgba(200, 125, 186, 0.05);
+  border: 0.5px solid rgba(200, 125, 186, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-creative-vid-scanline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(200, 125, 186, 0.1);
+  animation: hero-scanline 2s linear infinite;
+}
+
+@keyframes hero-scanline {
+  from { top: -2px; }
+  to   { top: 100%; }
+}
+
+.hero-creative-vid-bars {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 50px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 0 14px 10px;
+  opacity: 0.3;
+}
+
+.hero-creative-vid-bar {
+  width: 3px;
+  background: rgba(200, 125, 186, 0.55);
+  border-radius: 1px;
+  animation: hero-vbar 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes hero-vbar {
+  from { height: 4px; }
+  to   { height: var(--h, 20px); }
+}
+
+.hero-creative-vid-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(200, 125, 186, 0.18);
+  border: 0.5px solid rgba(200, 125, 186, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-creative-vid-play svg {
+  width: 16px;
+  height: 16px;
+  fill: rgba(200, 160, 184, 0.7);
+}
+
+.hero-creative-vid-time {
+  position: absolute;
+  bottom: 12px;
+  right: 14px;
+  font-size: 0.7rem;
+  color: rgba(200, 125, 186, 0.55);
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  letter-spacing: 0.04em;
+}
+
+.hero-creative-vid-label {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  font-size: 0.625rem;
+  color: rgba(200, 125, 186, 0.45);
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+
+.hero-app[data-takeover='creative'] .hero-creative-img {
+  opacity: 0;
+}
+
+.hero-app[data-takeover='creative'] .hero-creative-vid {
+  opacity: 1;
+}
+
+/* ----------------------------------------------------------
+   Layer 2 — code background (tech side)
+   Pinned to right 38.2%. Slides as one block on creative takeover.
+
+   Two-layer split:
+   .hero-code-wrap  — outer shell that React never mutates; carries
+                      positioning + the translate transition. Chromium
+                      reliably animates properties on it.
+   .hero-code       — inner container that CodeBackground writes into
+                      on every typing tick. Its subtree mutations would
+                      pin transform/width transitions, so we keep those
+                      off this element.
+   ---------------------------------------------------------- */
+.hero-code-wrap {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 38.2%;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+  /* Tech edge moves from 61.8% → 68% of viewport (6.2vw delta) on
+     creative takeover; the code column slides the same distance.
+     `translate` on the stable outer wrapper animates cleanly where
+     `transform` on the mutated inner does not. */
+  translate: 0 0;
+  transition: translate 550ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hero-app[data-takeover='creative'] .hero-code-wrap {
+  translate: 6.2vw 0;
+}
+
+.hero-code {
+  position: absolute;
+  inset: 0;
+  padding: 20px 28px;
+  overflow: hidden;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  font-size: 0.75rem;
+  line-height: 1.65;
+  white-space: pre;
+  opacity: 0.3;
+}
+
+.hero-app[data-takeover='tech'] .hero-code {
+  opacity: 0.55;
+}
+
+.hero-code-line {
+  min-height: 1.65em;
+}
+
+.hero-code-gutter { color: #1a2538; }
+.hero-code-tag    { color: #c7654a; }
+.hero-code-attr   { color: #6a8aa0; }
+.hero-code-val    { color: #7a9960; }
+.hero-code-txt    { color: #4a6078; }
+.hero-code-cmt    { color: #2a3848; font-style: italic; }
+.hero-code-pn     { color: #3a4858; }
+.hero-code-cls    { color: #8a7a50; }
+
+.hero-code-cursor {
+  display: inline-block;
+  width: 6px;
+  height: 0.95em;
+  background: var(--tech-accent);
+  vertical-align: text-bottom;
+  animation: hero-blink 1s step-end infinite;
+}
+
+@keyframes hero-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0; }
+}
+
+/* ----------------------------------------------------------
+   Layer 3 — center anchor (identity)
+   Fixed at left 38.2%, width 23.6%. Never moves.
+   ---------------------------------------------------------- */
+.hero-center {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 38.2%;
+  width: 23.6%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none;
+  z-index: 5;
+  padding: 0 12px;
+  text-align: center;
+}
+
+.hero-brain {
+  width: 88px;
+  height: 100px;
+  margin-bottom: 18px;
+}
+
+.hero-brain-right,
+.hero-brain-left {
+  fill: #bbb;
+  opacity: 0.22;
+  transition: fill 500ms ease, opacity 500ms ease;
+}
+
+.hero-brain-midline {
+  stroke: #cccccc;
+  stroke-width: 0.4;
+  stroke-dasharray: 2 2;
+}
+
+.hero-brain-fold {
+  fill: none;
+  stroke: #aaaaaa;
+  stroke-width: 0.3;
+  opacity: 0.35;
+}
+
+.hero-app[data-takeover='creative'] .hero-brain-right {
+  fill: #c77dba;
+  opacity: 0.72;
+}
+.hero-app[data-takeover='creative'] .hero-brain-left {
+  opacity: 0.08;
+}
+
+.hero-app[data-takeover='tech'] .hero-brain-left {
+  fill: #5a9fd4;
+  opacity: 0.72;
+}
+.hero-app[data-takeover='tech'] .hero-brain-right {
+  opacity: 0.08;
+}
+
+/* Cat mark in hero — inherits takeover-aware palette via --cat-* vars */
+.hero-cat {
+  pointer-events: auto;   /* stand-alone proximity detection */
+  margin-bottom: 14px;
+  transform: scale(0.78);
+  --cat-accent: #1a1a1a;
+  --cat-eye: #444;
+}
+
+.hero-app[data-visual='creative'] .hero-cat {
+  --cat-accent: #9a5a90;
+  --cat-eye: #d4a0cc;
+}
+
+.hero-app[data-visual='tech'] .hero-cat {
+  --cat-accent: #3a7abd;
+  --cat-eye: #7ab0d8;
+}
+
+/* Fade the cat alongside other morphing text during font swap */
+.hero-cat .cat-mark-ears,
+.hero-cat .cat-mark-eye,
+.hero-cat .cat-mark-nose {
+  transition: color 500ms ease, opacity 200ms ease;
+}
+.hero-app[data-fading] .hero-cat .cat-mark-ears,
+.hero-app[data-fading] .hero-cat .cat-mark-nose {
+  opacity: 0;
+}
+
+/* ------------------------------------------------------------
+   Morphing text — signature + description.
+
+   Font-family is a discrete property (no interpolation), so
+   transitioning it directly causes visible glyph jumps. Instead we
+   stage the change:
+
+     1. takeover changes instantly       (drives bg color + brain)
+     2. data-fading[true] appears        (text opacity → 0)
+     3. 200ms later visualTakeover updates (font-family swaps while invisible)
+     4. data-fading[false] returns       (text opacity → 1 in new font)
+
+   Height is locked via min-height so swapping fonts doesn't reshape
+   the surrounding layout (brain above, description below stay still).
+   ------------------------------------------------------------ */
+
+.hero-signature {
+  font-size: clamp(2.4rem, 4.4vw, 3.6rem);
+  font-weight: 400;
+  color: #1a1a1a;
+  margin: 0;
+  white-space: nowrap;
+  /* Locked height so the signature occupies the same vertical slot
+     regardless of which state's (smaller) font is active — the cat,
+     brain, and description above and below it don't shift when the
+     font size changes on hover. */
+  height: clamp(3rem, 5.2vw, 4.3rem);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  transition: opacity 200ms ease, color 500ms ease;
+  /* Neutral: Instrument Serif — bold display serif for a confident,
+     bespoke personal-brand feel. */
+  font-family: 'Instrument Serif', 'DM Serif Display', Georgia, serif;
+  opacity: 1;
+}
+
+.hero-app[data-visual='creative'] .hero-signature {
+  font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
+  font-style: italic;
+  font-size: clamp(1.6rem, 2.6vw, 2.2rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  color: #d4a0cc;
+}
+
+.hero-app[data-visual='tech'] .hero-signature {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  font-size: clamp(1.4rem, 2.1vw, 1.8rem);
+  font-weight: 400;
+  letter-spacing: 0;
+  color: #7ab0d8;
+  text-transform: lowercase;
+}
+
+/* Console-style blinking cursor at the end of the signature on
+   tech takeover, mimicking a shell prompt waiting for input. */
+.hero-app[data-visual='tech'] .hero-signature::after {
+  content: '';
+  display: inline-block;
+  width: 0.55em;
+  height: 0.95em;
+  background: currentColor;
+  margin-left: 0.18em;
+  vertical-align: text-bottom;
+  animation: hero-signature-cursor 1s step-end infinite;
+}
+
+@keyframes hero-signature-cursor {
+  0%, 49%   { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.hero-description {
+  font-size: 0.78rem;
+  text-align: center;
+  line-height: 1.5;
+  max-width: 220px;
+  /* Locked single-line height — all three description variants are
+     one line, so the box never needs to grow. */
+  height: 1.6em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 12px 0 0;
+  color: #888;
+  transition: opacity 200ms ease, color 500ms ease;
+  font-family: 'Inter', system-ui, sans-serif;
+  opacity: 1;
+}
+
+.hero-app[data-visual='creative'] .hero-description {
+  font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
+  font-style: italic;
+  color: #8a6080;
+}
+
+.hero-app[data-visual='tech'] .hero-description {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  color: #5080a0;
+}
+
+/* Mid-transition: fade the text out so the font swap isn't visible */
+.hero-app[data-fading] .hero-signature,
+.hero-app[data-fading] .hero-description {
+  opacity: 0;
+}
+
+/* ----------------------------------------------------------
+   Layer 4 — hit zones (top interaction layer)
+   Invisible buttons at fixed golden-ratio widths.
+   ---------------------------------------------------------- */
+.hero-hitzones {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  z-index: 10;
+}
+
+.hero-hitzone {
+  height: 100%;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: default;
+  font: inherit;
+  color: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 0;
+}
+
+.hero-hitzone-creative {
+  width: 38.2%;
+  cursor: pointer;
+}
+
+.hero-hitzone-center {
+  width: 23.6%;
+}
+
+.hero-hitzone-tech {
+  width: 38.2%;
+  cursor: pointer;
+}
+
+.hero-hitzone:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.2);
+}
+
+.hero-hitzone-creative:focus-visible {
+  box-shadow: inset 0 0 0 2px rgba(212, 160, 204, 0.35);
+}
+
+.hero-hitzone-tech:focus-visible {
+  box-shadow: inset 0 0 0 2px rgba(122, 176, 216, 0.35);
+}
+
+.hero-hitzone:disabled {
+  cursor: default;
+}
+
+/* ----------------------------------------------------------
+   Reduced motion — disable animations, skip typing, skip flash
+   ---------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .hero-app,
+  .hero-panel,
+  .hero-creative-img,
+  .hero-creative-vid,
+  .hero-code,
+  .hero-brain-right,
+  .hero-brain-left,
+  .hero-signature,
+  .hero-signature-logo,
+  .hero-description,
+  .hero-panel-label,
+  .hero-panel-sub {
+    transition-duration: 0.01ms !important;
+  }
+
+  .hero-creative-vid-scanline,
+  .hero-creative-vid-bar,
+  .hero-code-cursor {
+    animation: none !important;
+  }
+
+  .hero-app[data-expanding] .hero-panel {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ----------------------------------------------------------
+   Mobile note — fuller adaptation arrives in Phase 6.
+   For now scale the center column down so the brain + signature
+   still sit comfortably on narrow viewports.
+   ---------------------------------------------------------- */
+@media (max-width: 720px) {
+  .hero-center {
+    padding: 0 8px;
+  }
+  .hero-brain {
+    width: 64px;
+    height: 72px;
+    margin-bottom: 12px;
+  }
+  .hero-signature {
+    font-size: 1.8rem;
+  }
+  .hero-app[data-visual='creative'] .hero-signature {
+    font-size: 1.25rem;
+  }
+  .hero-app[data-visual='tech'] .hero-signature {
+    font-size: 1.05rem;
+  }
+  .hero-description {
+    font-size: 0.7rem;
+    max-width: 140px;
+  }
+  .hero-panel-label {
+    font-size: 0.9rem;
+  }
+  .hero-panel-sub {
+    display: none;
+  }
+  .hero-code {
+    font-size: 0.625rem;
+    padding: 12px 14px;
+  }
+}
