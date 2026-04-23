@@ -7,7 +7,7 @@ interface Props {
 }
 
 /**
- * Icon-only social link row — GitHub, Email, Instagram, X.
+ * Icon-only social link row — LinkedIn, GitHub, Email, Instagram, X.
  * Email copies to clipboard and swaps to a checkmark on success.
  */
 export default function SocialLinks({ onCopyEmail }: Props) {

@@ -60,6 +60,11 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return err(`R2 upload failed: ${describe(e)}`, 500);
   }
 
+  // Admin can override the EXIF-derived date via a `date_taken`
+  // form field (ISO string). Otherwise fall back to EXIF's
+  // DateTimeOriginal.
+  const dateTaken = (form.get('date_taken') as string | null) ?? exif.dateTaken;
+
   const row: PhotoRow = {
     id,
     title,
@@ -75,6 +80,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     layout,
     status,
     sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
+    date_taken: dateTaken,
     created_at: new Date().toISOString(),
   };
 

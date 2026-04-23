@@ -6,56 +6,159 @@ import { isAuthenticated } from '@/lib/auth';
 export const prerender = false;
 
 // Already logged in? Go straight to /admin.
-if (await safeIsAuth(Astro.cookies)) {
-  return Astro.redirect('/admin');
-}
-
-async function safeIsAuth(cookies: Astro.cookies) {
-  try {
-    return await isAuthenticated(cookies);
-  } catch {
-    return false;
+try {
+  if (await isAuthenticated(Astro.cookies)) {
+    return Astro.redirect('/admin');
   }
+} catch {
+  /* bad env; fall through to the form */
 }
 ---
-<BaseLayout title="Admin login" description="Admin login" themeColor="#0b0f18" bodyClass="admin-login-body">
-  <main class="admin-login">
-    <div class="admin-login-card">
-      <h1 class="admin-login-title">Admin</h1>
-      <p class="admin-login-sub">Sign in to manage photos + music.</p>
+<BaseLayout title="Admin — Sign in" description="Admin sign in" themeColor="#0a0b14" bodyClass="sl-body">
+  <main class="sl-main">
+    <section class="sl-card" aria-labelledby="sl-title">
+      <header class="sl-head">
+        <span class="sl-eyebrow">Jackie · Admin</span>
+        <h1 id="sl-title" class="sl-title">Sign in</h1>
+        <p class="sl-sub">Use your admin credentials to manage photos and music.</p>
+      </header>
       <LoginForm client:load />
-    </div>
+    </section>
   </main>
 </BaseLayout>
 
 <style is:global>
-  .admin-login-body {
-    background: #0a0b14;
+  .sl-body {
+    background:
+      radial-gradient(ellipse 60% 50% at 50% 30%, rgba(122, 176, 216, 0.10) 0%, rgba(10, 11, 20, 0) 70%),
+      linear-gradient(180deg, #0a0b14 0%, #06070c 100%);
+    min-height: 100vh;
     color: #e8ecf4;
+    font-family: 'Inter', system-ui, sans-serif;
   }
-  .admin-login {
+
+  .sl-main {
     min-height: 100vh;
     display: grid;
     place-items: center;
-    padding: 24px;
+    padding: 32px 20px;
   }
-  .admin-login-card {
+
+  .sl-card {
     width: min(420px, 100%);
-    padding: 32px 28px 28px;
-    background: rgba(255, 255, 255, 0.03);
+    padding: 40px 36px 36px;
+    background: rgba(255, 255, 255, 0.035);
     border: 0.5px solid rgba(255, 255, 255, 0.08);
-    border-radius: 14px;
-    backdrop-filter: blur(12px) saturate(150%);
+    border-radius: 16px;
+    box-shadow:
+      inset 0 0.5px 0 rgba(255, 255, 255, 0.06),
+      0 30px 70px -30px rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
   }
-  .admin-login-title {
-    font-size: 1.6rem;
-    margin: 0 0 4px;
+
+  .sl-head {
+    margin-bottom: 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .sl-eyebrow {
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(232, 236, 244, 0.45);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+  }
+  .sl-title {
+    font-size: 1.8rem;
     font-weight: 500;
     letter-spacing: -0.01em;
+    margin: 2px 0 0;
+    color: #f2f6fc;
   }
-  .admin-login-sub {
+  .sl-sub {
+    margin: 6px 0 0;
     font-size: 0.85rem;
     color: rgba(232, 236, 244, 0.55);
-    margin: 0 0 22px;
+    line-height: 1.5;
+  }
+
+  .sl-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .sl-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .sl-label {
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(232, 236, 244, 0.6);
+  }
+
+  .sl-input {
+    width: 100%;
+    padding: 11px 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 0.5px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    color: #ffffff;
+    font-size: 0.95rem;
+    font-family: inherit;
+    transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+  }
+  .sl-input::placeholder {
+    color: rgba(232, 236, 244, 0.35);
+  }
+  .sl-input:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+  .sl-input:focus {
+    outline: none;
+    border-color: rgba(122, 176, 216, 0.6);
+    background: rgba(255, 255, 255, 0.06);
+    box-shadow: 0 0 0 3px rgba(122, 176, 216, 0.12);
+  }
+
+  .sl-error {
+    padding: 9px 12px;
+    background: rgba(237, 66, 69, 0.10);
+    border: 0.5px solid rgba(237, 66, 69, 0.35);
+    border-radius: 8px;
+    color: #f4a4a5;
+    font-size: 0.82rem;
+    line-height: 1.4;
+  }
+
+  .sl-submit {
+    margin-top: 6px;
+    padding: 11px 16px;
+    background: #5a9fd4;
+    color: #06131f;
+    border: 0;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.92rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    transition: background 160ms ease, transform 120ms ease, opacity 160ms ease;
+  }
+  .sl-submit:hover:not(:disabled) {
+    background: #6fb1e0;
+  }
+  .sl-submit:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+  .sl-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 </style>

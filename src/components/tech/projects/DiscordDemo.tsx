@@ -364,9 +364,18 @@ export default function DiscordDemo() {
     { total: 0, haiku: 0, sonnet: 0 },
   );
   const [replayTick, setReplayTick] = useState(0);
+  // Gate script playback on visibility — otherwise the chat auto-
+  // plays while the viewer is still on the landing / experience
+  // section and is over by the time they scroll down.
+  const [hasBeenVisible, setHasBeenVisible] = useState(false);
+  // One-shot hint state: pulses channel rows + highlight badges for
+  // a few seconds after the demo first becomes visible, so it's
+  // obvious things are clickable. Dismissed on first interaction.
+  const [hintActive, setHintActive] = useState(false);
 
   const runnerRef = useRef<RunnerHandles | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
 
   const active = useMemo(
     () => CHANNELS.find((c) => c.id === activeId) ?? CHANNELS[0],
@@ -376,24 +385,66 @@ export default function DiscordDemo() {
   // Resolve which script to play — personality supports eras.
   const activeScript: ChannelScript = useMemo(() => {
     if (active.eras && active.eras.length > 0) {
-      const eraId = activeEraId ?? active.eras[active.eras.length - 1].id;
-      const era = active.eras.find((e) => e.id === eraId) ?? active.eras[active.eras.length - 1];
+      const eraId = activeEraId ?? active.eras[0].id;
+      const era = active.eras.find((e) => e.id === eraId) ?? active.eras[0];
       return { ...active, steps: era.steps, duration: era.duration };
     }
     return active;
   }, [active, activeEraId]);
 
-  // Default-select the last era when entering a channel that has eras.
+  // Default-select the FIRST era (Day 1) when entering an era channel
+  // so viewers watch the evolution start-to-end. Previously defaulted
+  // to the latest era.
   useEffect(() => {
     if (active.eras && active.eras.length > 0 && activeEraId === null) {
-      setActiveEraId(active.eras[active.eras.length - 1].id);
+      setActiveEraId(active.eras[0].id);
     }
     if (!active.eras) {
       setActiveEraId(null);
     }
   }, [active, activeEraId]);
 
-  // Run script on channel / era change / replay
+  // Attach IntersectionObserver to the root: only start scripts
+  // once the Discord window is at least partly in view. Flip
+  // `hintActive` at the same moment so the affordance pulse runs
+  // in sync with the first script playback.
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      // Fallback: just run immediately.
+      setHasBeenVisible(true);
+      setHintActive(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting && e.intersectionRatio >= 0.25) {
+            setHasBeenVisible(true);
+            setHintActive(true);
+            io.disconnect();
+            break;
+          }
+        }
+      },
+      { threshold: [0, 0.25, 0.5] },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  // Fade the hint out after a few seconds so it doesn't linger.
+  useEffect(() => {
+    if (!hintActive) return;
+    const t = window.setTimeout(() => setHintActive(false), 5800);
+    return () => window.clearTimeout(t);
+  }, [hintActive]);
+
+  // Run script on channel / era change / replay — but only once the
+  // demo has been scrolled into view. Before that, we just stay on
+  // the empty initial state so the chat isn't wasted on an off-screen
+  // viewer.
   useEffect(() => {
     if (runnerRef.current) {
       runnerRef.current.teardown();
@@ -404,6 +455,11 @@ export default function DiscordDemo() {
     setDynamicChannels([]);
     setExpandedHighlight(null);
     setCost({ total: 0, haiku: 0, sonnet: 0 });
+
+    if (!hasBeenVisible) {
+      setRunning(false);
+      return;
+    }
     setRunning(true);
 
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -466,7 +522,7 @@ export default function DiscordDemo() {
         runnerRef.current = null;
       }
     };
-  }, [activeScript, replayTick]);
+  }, [activeScript, replayTick, hasBeenVisible]);
 
   // Auto-scroll chat on new entries
   useEffect(() => {
@@ -529,11 +585,23 @@ export default function DiscordDemo() {
     setExpandedHighlight((cur) => (cur === id ? null : id));
   }, []);
 
+  // Any visitor click inside the demo dismisses the hint pulse.
+  const dismissHint = useCallback(() => setHintActive(false), []);
+  const handleSelectChannel = useCallback(
+    (id: string) => {
+      dismissHint();
+      setActiveId(id);
+    },
+    [dismissHint],
+  );
+
   return (
     <div
-      className="disc-demo"
+      ref={rootRef}
+      className={'disc-demo' + (hintActive ? ' is-hinting' : '')}
       role="region"
       aria-label="Discord app preview — interactive bot demo"
+      onClick={dismissHint}
     >
       <div className="disc-window">
         <DiscordTitleBar />
@@ -543,7 +611,7 @@ export default function DiscordDemo() {
           <DiscordChannelList
             channels={CHANNELS}
             activeId={activeId}
-            onSelect={setActiveId}
+            onSelect={handleSelectChannel}
             dynamicChannels={dynamicChannels}
           />
           <DiscordChatArea

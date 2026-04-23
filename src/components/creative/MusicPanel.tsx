@@ -4,13 +4,18 @@ import TrackList from './TrackList';
 import SpectrumBars from './SpectrumBars';
 import { useAudioPlayer } from './AudioPlayer';
 
+export type PanelSize = 'compact' | 'expanded';
+
 interface Props {
   /** Track list to render. Server-provided by creative.astro. */
   tracks: Track[];
   initialTrackId?: string;
+  /** Current size — lifted to CreativePortfolio so the header-bar
+   *  toggle can control it in sync with the drag handle on the
+   *  panel's inner edge. */
+  size: PanelSize;
+  onSizeChange: (s: PanelSize) => void;
 }
-
-type PanelSize = 'compact' | 'expanded';
 
 const COMPACT_WIDTH = 76;
 const EXPANDED_WIDTH = 380; // ~2x the previous expanded width
@@ -27,11 +32,10 @@ const DRAG_THRESHOLD = 120; // midpoint between 76 and 380
  * the photo gallery beside it only concerns itself with its own
  * scroll/expand interactions.
  */
-export default function MusicPanel({ tracks, initialTrackId }: Props) {
+export default function MusicPanel({ tracks, initialTrackId, size, onSizeChange }: Props) {
   const [activeId, setActiveId] = useState<string | null>(
     () => initialTrackId ?? tracks[0]?.id ?? null,
   );
-  const [size, setSize] = useState<PanelSize>('expanded');
   const activeTrack: Track | null =
     tracks.find((t) => t.id === activeId) ?? null;
 
@@ -93,7 +97,7 @@ export default function MusicPanel({ tracks, initialTrackId }: Props) {
       const final = dragWidth ?? COMPACT_WIDTH;
       const snapped: PanelSize =
         final > COMPACT_WIDTH + DRAG_THRESHOLD ? 'expanded' : 'compact';
-      setSize(snapped);
+      onSizeChange(snapped);
       setDragWidth(null);
       dragStartRef.current = null;
       document.body.style.removeProperty('cursor');
@@ -107,7 +111,7 @@ export default function MusicPanel({ tracks, initialTrackId }: Props) {
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onUp);
     };
-  }, [dragWidth]);
+  }, [dragWidth, onSizeChange]);
 
   const handleHandleDown = useCallback((e: React.PointerEvent) => {
     dragStartRef.current = {
@@ -119,12 +123,10 @@ export default function MusicPanel({ tracks, initialTrackId }: Props) {
     document.body.style.userSelect = 'none';
   }, [size]);
 
-  const handleToggle = useCallback(() => {
-    setSize((s) => (s === 'compact' ? 'expanded' : 'compact'));
-  }, []);
-
   const effectiveWidth = dragWidth ?? (size === 'expanded' ? EXPANDED_WIDTH : COMPACT_WIDTH);
   const expanded = effectiveWidth > (COMPACT_WIDTH + EXPANDED_WIDTH) / 2;
+
+  const handleToggleSize = () => onSizeChange(size === 'expanded' ? 'compact' : 'expanded');
 
   return (
     <aside
@@ -135,18 +137,44 @@ export default function MusicPanel({ tracks, initialTrackId }: Props) {
       style={{ width: `${effectiveWidth}px` }}
       aria-label="Music player"
     >
-      <div className="creative-music-heading" aria-hidden="true">
+      {/* In-flow header over the music column only. Replaces the
+          previous full-width top bar — the gallery now has a floating
+          pill (CreativeLeftPill) while the music panel owns its own
+          header with the expand/collapse toggle and the signature. */}
+      <header className="creative-music-header">
         <button
           type="button"
-          className="creative-music-toggle"
-          onClick={handleToggle}
+          className="creative-icon-btn creative-music-header-toggle"
+          onClick={handleToggleSize}
           aria-label={expanded ? 'Collapse music panel' : 'Expand music panel'}
+          title={expanded ? 'Collapse music panel' : 'Expand music panel'}
         >
-          <span />
-          <span />
-          <span />
+          <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+            {expanded ? (
+              /* Panel is currently expanded → clicking collapses it
+                 toward the right edge. Arrow points RIGHT to signal
+                 the direction the panel will shrink. */
+              <g stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none">
+                <rect x="2.5" y="3.5" width="15" height="13" rx="2" />
+                <line x1="13" y1="3.5" x2="13" y2="16.5" />
+                <path d="M6 10h5" />
+                <path d="M8.5 12l2.5-2-2.5-2" />
+              </g>
+            ) : (
+              /* Panel is currently compact → clicking expands it
+                 toward the gallery. Arrow points LEFT to signal
+                 the direction the panel will grow. */
+              <g stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none">
+                <rect x="2.5" y="3.5" width="15" height="13" rx="2" />
+                <line x1="13" y1="3.5" x2="13" y2="16.5" />
+                <path d="M11 10H6" />
+                <path d="M8.5 8l-2.5 2 2.5 2" />
+              </g>
+            )}
+          </svg>
         </button>
-      </div>
+        {expanded && <span className="creative-music-header-sig">Jackie</span>}
+      </header>
 
       <TrackList
         tracks={tracks}
@@ -215,6 +243,9 @@ export default function MusicPanel({ tracks, initialTrackId }: Props) {
               </svg>
             </button>
           )}
+          {/* Collapse/expand moved out to the header bar (see
+              CreativeTopNav). The drag handle on the inner edge is
+              still here for resize-by-drag. */}
         </div>
       </div>
 

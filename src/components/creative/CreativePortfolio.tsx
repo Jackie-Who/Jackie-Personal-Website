@@ -1,7 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { navigate } from 'astro:transitions/client';
-import CreativeTopNav from './CreativeTopNav';
-import MusicPanel from './MusicPanel';
+import CreativeLeftPill, { type CreativeTheme } from './CreativeLeftPill';
+import MusicPanel, { type PanelSize } from './MusicPanel';
 import PhotoGallery from './PhotoGallery';
 import PhotoExpanded from './PhotoExpanded';
 import CreativeReturnOverlay from './CreativeReturnOverlay';
@@ -10,6 +10,7 @@ import type { Track } from '@/content/tracks';
 import './creative.css';
 
 const BACK_SWIPE_MS = 600;
+const THEME_STORAGE_KEY = 'creative-theme';
 
 type View = 'gallery' | 'expanded';
 
@@ -26,6 +27,30 @@ export default function CreativePortfolio({ photos, tracks }: Props) {
   const [view, setView] = useState<View>('gallery');
   const [expandedStart, setExpandedStart] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
+  const [theme, setTheme] = useState<CreativeTheme>('dark');
+  // Music-panel size is lifted up so the header-bar toggle and the
+  // drag handle both drive the same source of truth.
+  const [musicSize, setMusicSize] = useState<PanelSize>('expanded');
+
+  // Hydrate from localStorage on mount. We default to dark to avoid
+  // flashing a light panel if the viewer last chose dark — the
+  // server HTML is dark-first too.
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
+      if (saved === 'light' || saved === 'dark') setTheme(saved);
+    } catch {
+      /* storage may be unavailable in some embedding contexts */
+    }
+  }, []);
+
+  // Keep the body bg in sync with theme — otherwise the Astro
+  // pre-hydration style on body.creative-body is whatever the
+  // SSR rendered, which won't flip when the visitor toggles.
+  useEffect(() => {
+    document.body.classList.toggle('creative-body-light', theme === 'light');
+  }, [theme]);
+
 
   const handleOpenPhoto = useCallback((id: string) => {
     setExpandedStart(id);
@@ -45,10 +70,27 @@ export default function CreativePortfolio({ photos, tracks }: Props) {
     }, BACK_SWIPE_MS);
   }, []);
 
+  const handleToggleTheme = useCallback(() => {
+    setTheme((t) => {
+      const next: CreativeTheme = t === 'dark' ? 'light' : 'dark';
+      try {
+        window.localStorage.setItem(THEME_STORAGE_KEY, next);
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, []);
+
   return (
-    <div className="creative-app" data-view={view} data-leaving={leaving || undefined}>
+    <div
+      className="creative-app"
+      data-view={view}
+      data-leaving={leaving || undefined}
+      data-theme={theme}
+    >
       {leaving && <CreativeReturnOverlay />}
-      <CreativeTopNav onBack={handleBack} />
+      <CreativeLeftPill onBack={handleBack} theme={theme} onToggleTheme={handleToggleTheme} />
 
       <main className="creative-main">
         <div className="creative-stage">
@@ -63,7 +105,7 @@ export default function CreativePortfolio({ photos, tracks }: Props) {
           )}
         </div>
 
-        <MusicPanel tracks={tracks} />
+        <MusicPanel tracks={tracks} size={musicSize} onSizeChange={setMusicSize} />
       </main>
     </div>
   );

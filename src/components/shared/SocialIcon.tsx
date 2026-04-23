@@ -71,6 +71,22 @@ export default function SocialIcon({ name, className }: Props) {
           />
         </svg>
       );
+    case 'linkedin':
+      // Generic LinkedIn-style mark (rounded square with an "in"
+      // word-glyph). Uses currentColor so the button styling drives
+      // both the box and the text color — consistent with the rest
+      // of the socials row. Not the official LinkedIn logo asset.
+      return (
+        <svg className={cls} viewBox="0 0 16 16" aria-hidden="true">
+          <rect x="1" y="1" width="14" height="14" rx="2.2" fill="currentColor" />
+          <rect x="3.3" y="6.2" width="1.9" height="6.3" rx="0.3" fill="#0a0a0a" />
+          <rect x="3.3" y="3.3" width="1.9" height="1.9" rx="0.95" fill="#0a0a0a" />
+          <path
+            d="M7 6.2h1.85v0.95c0.35 -0.65 1.05 -1.1 2 -1.1 1.5 0 2.3 0.95 2.3 2.55v3.9h-1.9v-3.5c0 -0.8 -0.3 -1.25 -1 -1.25 -0.75 0 -1.25 0.5 -1.25 1.3v3.45H7V6.2z"
+            fill="#0a0a0a"
+          />
+        </svg>
+      );
     default:
       return null;
   }

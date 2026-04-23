@@ -72,6 +72,7 @@ export async function ensureSchema(): Promise<void> {
       layout TEXT DEFAULT 'standard',
       status TEXT DEFAULT 'draft',
       sort_order INTEGER DEFAULT 0,
+      date_taken TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
     `CREATE TABLE IF NOT EXISTS tracks (
@@ -111,6 +112,9 @@ export interface PhotoRow {
   layout: string;
   status: string;
   sort_order: number;
+  /** ISO date string from EXIF DateTimeOriginal, or null. Used to
+   *  group gallery tiles by year on the public creative page. */
+  date_taken: string | null;
   created_at: string;
 }
 
@@ -156,12 +160,13 @@ export async function insertPhoto(row: PhotoRow): Promise<void> {
   await c.execute({
     sql: `INSERT INTO photos
       (id, title, filename, r2_key, focal_length, aperture, shutter_speed, iso,
-       camera, lens, category, layout, status, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       camera, lens, category, layout, status, sort_order, date_taken)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       row.id, row.title, row.filename, row.r2_key,
       row.focal_length, row.aperture, row.shutter_speed, row.iso,
       row.camera, row.lens, row.category, row.layout, row.status, row.sort_order,
+      row.date_taken,
     ],
   });
 }

@@ -36,6 +36,14 @@ export async function loadTracks(): Promise<Track[]> {
 }
 
 function rowToPhoto(r: PhotoRow): Photo {
+  // Derive the calendar year from date_taken for year-group
+  // headers. Null-safe — photos without EXIF capture date land in
+  // the "Undated" bucket at the bottom of the gallery.
+  let year: number | undefined;
+  if (r.date_taken) {
+    const d = new Date(r.date_taken);
+    if (!Number.isNaN(d.getTime())) year = d.getUTCFullYear();
+  }
   return {
     id: r.id,
     title: r.title,
@@ -50,10 +58,17 @@ function rowToPhoto(r: PhotoRow): Photo {
     camera: r.camera ?? undefined,
     lens: r.lens ?? undefined,
     category: r.category ?? undefined,
+    year,
   };
 }
 
 function rowToTrack(r: TrackRow): Track {
+  // If the admin uploaded a cover image, render it as a CSS
+  // background so the TrackList thumbnail gets the real artwork.
+  // Otherwise fall back to a palette-matched gradient.
+  const thumbnail = r.cover_r2_key
+    ? `url(${r2PublicUrl(r.cover_r2_key)}) center/cover no-repeat, linear-gradient(135deg,#3a2838,#1a1420)`
+    : 'linear-gradient(135deg, #3a2838 0%, #1a1420 100%)';
   return {
     id: r.id,
     title: r.title,
@@ -63,6 +78,7 @@ function rowToTrack(r: TrackRow): Track {
       ? r.type
       : 'solo') as Track['type'],
     audioUrl: r2PublicUrl(r.audio_r2_key),
+    thumbnail,
     note: r.notes ?? undefined,
   };
 }

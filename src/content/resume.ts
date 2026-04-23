@@ -26,7 +26,7 @@ export interface Extracurricular {
 }
 
 export type ResumeLinkAction = 'copy-email';
-export type SocialIcon = 'github' | 'email' | 'instagram' | 'x';
+export type SocialIcon = 'github' | 'email' | 'instagram' | 'x' | 'linkedin';
 
 export interface ResumeLink {
   label: string;
@@ -53,6 +53,12 @@ export const email = 'jackie.yifei.hu@gmail.com';
 // Placeholder URLs for Instagram and X — swap for Jackie's actual
 // handles when confirmed.
 export const links: ResumeLink[] = [
+  {
+    label: 'LinkedIn',
+    href: 'https://www.linkedin.com/in/jackie-hu-544a35155/',
+    icon: 'linkedin',
+    external: true,
+  },
   {
     label: 'GitHub',
     href: 'https://github.com/Jackie-Who',

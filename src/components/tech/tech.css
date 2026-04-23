@@ -384,17 +384,17 @@
 }
 
 .tech-exp-role {
-  font-size: 0.95rem;
-  color: var(--tech-text-secondary);
+  font-size: 1.02rem;
+  color: var(--tech-text);
   margin: 0;
   font-weight: 500;
   letter-spacing: 0.01em;
 }
 
 .tech-exp-co {
-  font-size: 0.72rem;
-  color: var(--tech-text-muted);
-  margin: 3px 0 0;
+  font-size: 0.8rem;
+  color: var(--tech-text-secondary);
+  margin: 4px 0 0;
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
@@ -406,18 +406,20 @@
 }
 
 .tech-exp-notes {
-  margin: 8px 0 0;
+  margin: 10px 0 0;
   padding: 0;
   list-style: none;
-  color: var(--tech-text-faint);
+  /* Brighter than the previous --tech-text-faint so body notes
+     read comfortably in the ambient blue palette. */
+  color: #c0d4e8;
 }
 
 .tech-exp-notes li {
-  font-size: 0.72rem;
+  font-size: 0.82rem;
   line-height: 1.6;
   position: relative;
   padding-left: 12px;
-  margin-bottom: 3px;
+  margin-bottom: 4px;
 }
 
 .tech-exp-notes li::before {
@@ -425,7 +427,7 @@
   position: absolute;
   left: 2px;
   top: -1px;
-  color: #2a3a50;
+  color: #4a6078;
 }
 
 /* Per-experience skill tags — sits under the notes for each role */
@@ -443,19 +445,19 @@
 .tech-edu-degree,
 .tech-edu-period {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.85rem;
 }
 .tech-edu-school {
-  color: var(--tech-text-secondary);
+  color: var(--tech-text);
 }
 .tech-edu-degree {
-  color: var(--tech-text-faint);
-  margin-top: 3px;
+  color: #c0d4e8;
+  margin-top: 4px;
 }
 .tech-edu-period {
   color: var(--tech-text-muted);
-  margin-top: 3px;
-  font-size: 0.7rem;
+  margin-top: 4px;
+  font-size: 0.75rem;
 }
 
 .tech-cert-list {
@@ -465,9 +467,9 @@
 }
 
 .tech-cert-list li {
-  font-size: 0.72rem;
-  color: var(--tech-text-faint);
-  margin-bottom: 3px;
+  font-size: 0.8rem;
+  color: #c0d4e8;
+  margin-bottom: 4px;
 }
 
 .tech-skill-list {

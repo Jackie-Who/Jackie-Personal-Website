@@ -50,8 +50,9 @@ turso db shell jackie-site < migrations/0001_init.sql
 Copy `.env.example` → `.env` and fill:
 
 ```
-ADMIN_PASSWORD=<your plaintext admin password>
-AUTH_SECRET=<long random string — rotate to invalidate sessions>
+ADMIN_USERNAME=<pick any username>
+ADMIN_PASSWORD=<pick a long password>
+AUTH_SECRET=<long random string — `openssl rand -hex 32`>
 TURSO_DATABASE_URL=libsql://jackie-site-<account>.turso.io
 TURSO_AUTH_TOKEN=<from `turso db tokens create`>
 R2_ACCOUNT_ID=<Cloudflare account ID>
@@ -61,7 +62,7 @@ R2_BUCKET_NAME=jackie-site-assets
 R2_PUBLIC_URL=https://assets.your-domain.com
 ```
 
-On Vercel, paste these into **Project → Settings → Environment Variables**.
+On Vercel, paste these into **Project → Settings → Environment Variables** (see the top-level `VERCEL-SETUP.md` for the full click-through walkthrough).
 
 ## Sign in
 

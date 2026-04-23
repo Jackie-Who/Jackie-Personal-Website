@@ -8,18 +8,25 @@
    and scoped CSS where Tailwind class generation is awkward.
 --------------------------------------------------------- */
 :root {
-  /* Creative */
-  --creative-bg: #0e0a12;
-  --creative-surface: #1e1424;
-  --creative-border: #2a1830;
-  --creative-accent: #c8a0b8;
-  --creative-text: #c8a0b8;
-  --creative-text-secondary: #9a7898;
-  --creative-text-muted: #5a4060;
-  --creative-text-faint: #3a2848;
-  --creative-signature: #d4a0cc;
-  --creative-logo: #9a5a90;
-  --creative-brain: #c77dba;
+  /* Creative — "Mist" dark default. Cool near-black canvas with
+     a pastel pale-blue accent. Paired with the "Cream" light-mode
+     twin scoped to .creative-app[data-theme='light'] below.
+     `*-rgb` variants are exposed so rgba() alpha-overlays in
+     creative.css can inherit the theme without duplicating rules. */
+  --creative-bg: #0d0f13;
+  --creative-surface: #161a20;
+  --creative-border: #222830;
+  --creative-accent: #b8d4e4;
+  --creative-accent-rgb: 184, 212, 228;
+  --creative-glass: #161a20;
+  --creative-glass-rgb: 22, 26, 32;
+  --creative-text: #e8ecf4;
+  --creative-text-secondary: #b0bcc8;
+  --creative-text-muted: #6d7c8c;
+  --creative-text-faint: #4a5663;
+  --creative-signature: #cfdeed;
+  --creative-logo: #8ca8c0;
+  --creative-brain: #b8d4e4;
 
   /* Tech */
   --tech-bg: #080c16;
@@ -54,6 +61,31 @@
   /* Motion */
   --panel-ease: cubic-bezier(0.4, 0, 0.2, 1);
   --panel-duration: 550ms;
+}
+
+/* ---------------------------------------------------------
+   Creative — Light theme ("Cream")
+   Activated via data-theme='light' on .creative-app. Takes the
+   Sky dark palette's pastel-blue accent and flips it to a deeper
+   sky hue that reads on a warm cream canvas. Keeps the same
+   color family so the dark ↔ light toggle feels like a single
+   palette in two modes, not two unrelated schemes.
+--------------------------------------------------------- */
+.creative-app[data-theme='light'] {
+  --creative-bg: #f5eedf;                     /* warm cream */
+  --creative-surface: #fcf8ed;                /* paper */
+  --creative-border: #e1d6c0;                 /* soft khaki line */
+  --creative-accent: #3a6f98;                 /* deeper sky, WCAG-safe on cream */
+  --creative-accent-rgb: 58, 111, 152;
+  --creative-glass: #ffffff;
+  --creative-glass-rgb: 255, 255, 255;
+  --creative-text: #1e2a38;                   /* near-navy ink */
+  --creative-text-secondary: #3d5166;
+  --creative-text-muted: #6f7f92;
+  --creative-text-faint: #a8b2bf;
+  --creative-signature: #2a4d6f;
+  --creative-logo: #3a6f98;
+  --creative-brain: #3a6f98;
 }
 
 /* ---------------------------------------------------------

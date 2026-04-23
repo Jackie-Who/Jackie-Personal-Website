@@ -12,7 +12,7 @@ const [photos, tracks] = await Promise.all([loadPhotos(), loadTracks()]);
 ---
 
 <BaseLayout
-  title="Jackie — Creative"
+  title="Jackie Hu"
   description="Classical flutist and photographer. Live performances, solo recordings, and photography galleries."
   themeColor="#0e0a12"
   bodyClass="creative-body"
@@ -34,7 +34,15 @@ const [photos, tracks] = await Promise.all([loadPhotos(), loadTracks()]);
   .creative-body main {
     margin: 0;
     padding: 0;
-    background: #0e0a12;
+    /* Pre-hydration bg. The React app paints over this with a
+       themed bg (dark Mist or light Cream) once mounted, but
+       until then we show a neutral dark to avoid a flash of bright
+       white while the JS bundle downloads + hydrates. */
+    background: #0d0f13;
+  }
+  .creative-body.creative-body-light,
+  .creative-body.creative-body-light main {
+    background: #f5eedf;
   }
 </style>
 
