@@ -60,11 +60,35 @@ const CHAIN_CHANCE = 0.4;
 const COLOR_LERP = 0.05;
 const BURST_COUNT = 30;
 const TAKEOVER_SIGNAL_COUNT = 4;
+// Thinking-element spawn rate while a hemisphere is active.
+const THOUGHT_INTERVAL_MS = 170;
 
 // Palette. RGB only — alpha is computed per-node / per-edge.
 const COLOR_NEUTRAL = { r: 168, g: 180, b: 194 }; // silver
 const COLOR_CREATIVE = { r: 199, g: 125, b: 186 }; // #c77dba hero pink
 const COLOR_TECH = { r: 90, g: 159, b: 212 };      // #5a9fd4 hero blue
+
+// "Thinking" decorations per hemisphere. Tech gets binary / code
+// glyphs that read as logical reasoning; creative gets colored
+// shape primitives that read as a broader expressive palette. Both
+// spawn from a random node in the active hemisphere and drift
+// slightly outward with a mild upward bias, fading over ~2 s.
+const TECH_CHARS = ['0', '1', '0', '1', '0', '1', '0', '1', '{', '}', ';', '=', '<', '>', '/', '+'];
+const TECH_PALETTE = [
+  { r: 90, g: 159, b: 212 },   // #5a9fd4 — primary blue
+  { r: 104, g: 197, b: 216 },  // cyan
+  { r: 136, g: 207, b: 160 },  // pale green — "matrix" feel
+  { r: 140, g: 190, b: 225 },  // soft blue
+];
+const CREATIVE_PALETTE = [
+  { r: 199, g: 125, b: 186 },  // #c77dba — primary pink
+  { r: 224, g: 176, b: 96 },   // warm gold
+  { r: 215, g: 185, b: 213 },  // lilac
+  { r: 240, g: 170, b: 160 },  // peach
+  { r: 170, g: 135, b: 200 },  // soft purple
+];
+type ShapeKind = 'circle' | 'triangle' | 'square' | 'arc';
+const CREATIVE_SHAPES: ShapeKind[] = ['circle', 'triangle', 'square', 'arc'];
 
 interface Node {
   /** Rest position (unperturbed center). */
@@ -115,6 +139,30 @@ interface Burst {
   /** Life in 1..0, removed when <= 0. */
   life: number;
   color: { r: number; g: number; b: number };
+}
+
+/**
+ * Ambient "thinking" particle — a binary digit / code symbol (tech)
+ * or a colored shape primitive (creative). Spawned at random nodes
+ * on the active hemisphere every ~170 ms while one is active.
+ * Drifts outward with a mild upward bias, fades over ~2 s.
+ */
+interface Thought {
+  kind: 'text' | 'shape';
+  text?: string;
+  shape?: ShapeKind;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  rotation: number;
+  vrot: number;
+  /** Font size (text) or radius-ish size (shape) in px. */
+  size: number;
+  color: { r: number; g: number; b: number };
+  /** Life in 1..0 — decays by `decay` each frame. */
+  life: number;
+  decay: number;
 }
 
 // Which hemisphere lights up for each takeover:
@@ -175,7 +223,9 @@ export default function NeuralBrain({ takeover, nav }: Props) {
     const nodes: Node[] = [];
     let signals: Signal[] = [];
     let bursts: Burst[] = [];
+    let thoughts: Thought[] = [];
     let lastFireAt = 0;
+    let lastThoughtAt = 0;
 
     let prevTakeover: Takeover = takeoverRef.current;
     let prevNav: NavState = navRef.current;
@@ -195,6 +245,7 @@ export default function NeuralBrain({ takeover, nav }: Props) {
       nodes.length = 0;
       signals = [];
       bursts = [];
+      thoughts = [];
 
       // Two hemisphere ellipses — narrower in x (inward) so they don't
       // cross the midline; taller in y. Tuned so the aggregate node
@@ -318,6 +369,61 @@ export default function NeuralBrain({ takeover, nav }: Props) {
           speed: SIGNAL_SPEED * 1.1,
           color,
           chainable: true,
+        });
+      }
+    };
+
+    const spawnThought = (hemi: 'left' | 'right') => {
+      // Anchor on a random node in the active hemisphere so the
+      // thinking elements visibly emanate from the brain rather
+      // than from a generic centroid.
+      const hemiNodes = nodes.filter((n) => n.hemi === hemi);
+      if (hemiNodes.length === 0) return;
+      const anchor = hemiNodes[Math.floor(Math.random() * hemiNodes.length)];
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 0.4 + Math.random() * 0.6;
+      // Slight upward bias — rising feels more alive than falling.
+      const vx = Math.cos(angle) * speed;
+      const vy = Math.sin(angle) * speed - 0.3;
+      const decay = 1 / (110 + Math.random() * 70); // ~1.8–3.0 s at 60 fps
+
+      if (hemi === 'right') {
+        // Tech-side hemisphere — binary + code chars. Text doesn't
+        // rotate (it'd be illegible); it just drifts + fades.
+        const char = TECH_CHARS[Math.floor(Math.random() * TECH_CHARS.length)];
+        const color = TECH_PALETTE[Math.floor(Math.random() * TECH_PALETTE.length)];
+        thoughts.push({
+          kind: 'text',
+          text: char,
+          x: anchor.cx,
+          y: anchor.cy,
+          vx,
+          vy,
+          rotation: 0,
+          vrot: 0,
+          size: 11 + Math.random() * 5,
+          color,
+          life: 1,
+          decay,
+        });
+      } else {
+        // Creative-side hemisphere — colored shape primitives. Shapes
+        // rotate as they drift for a more chaotic/expressive feel.
+        const shape = CREATIVE_SHAPES[Math.floor(Math.random() * CREATIVE_SHAPES.length)];
+        const color = CREATIVE_PALETTE[Math.floor(Math.random() * CREATIVE_PALETTE.length)];
+        thoughts.push({
+          kind: 'shape',
+          shape,
+          x: anchor.cx,
+          y: anchor.cy,
+          vx,
+          vy,
+          rotation: Math.random() * Math.PI * 2,
+          vrot: (Math.random() - 0.5) * 0.05,
+          size: 4 + Math.random() * 6,
+          color,
+          life: 1,
+          decay,
         });
       }
     };
@@ -475,6 +581,27 @@ export default function NeuralBrain({ takeover, nav }: Props) {
         return b.life > 0;
       });
 
+      // ----- "Thinking" particle spawn + physics -----
+      // Only while a hemisphere is active — on neutral, existing
+      // thoughts finish their fade but no new ones spawn.
+      const activeForThought = activeHemi(currentTakeover);
+      if (activeForThought && tNow - lastThoughtAt > THOUGHT_INTERVAL_MS) {
+        lastThoughtAt = tNow;
+        spawnThought(activeForThought);
+      }
+      thoughts = thoughts.filter((t) => {
+        t.x += t.vx;
+        t.y += t.vy;
+        // Mild air-resistance decel so thoughts don't shoot off.
+        t.vx *= 0.985;
+        t.vy *= 0.985;
+        // Tiny gravity pulling downward so risers eventually settle.
+        t.vy += 0.005;
+        t.rotation += t.vrot;
+        t.life -= t.decay;
+        return t.life > 0;
+      });
+
       // ----- Draw -----
       drawScene();
 
@@ -518,6 +645,51 @@ export default function NeuralBrain({ takeover, nav }: Props) {
           ctx.lineTo(pb.x, pb.y);
           ctx.stroke();
         }
+      }
+
+      // "Thinking" particles — binary + code glyphs on tech,
+      // colored shapes on creative. Drawn BEFORE nodes so the
+      // neural web stays in front, reading as the primary
+      // structure while the thoughts are its ambient halo.
+      for (const t of thoughts) {
+        const alpha = Math.max(0, Math.min(1, t.life * 1.5));
+        if (alpha <= 0.01) continue;
+        ctx.save();
+        ctx.translate(t.x, t.y);
+        if (t.vrot !== 0) ctx.rotate(t.rotation);
+        if (t.kind === 'text' && t.text) {
+          ctx.font = `${t.size | 0}px "JetBrains Mono", "Fira Code", "Courier New", monospace`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = `rgba(${t.color.r}, ${t.color.g}, ${t.color.b}, ${alpha * 0.85})`;
+          ctx.fillText(t.text, 0, 0);
+        } else if (t.kind === 'shape') {
+          ctx.fillStyle = `rgba(${t.color.r}, ${t.color.g}, ${t.color.b}, ${alpha * 0.78})`;
+          switch (t.shape) {
+            case 'circle':
+              ctx.beginPath();
+              ctx.arc(0, 0, t.size, 0, Math.PI * 2);
+              ctx.fill();
+              break;
+            case 'triangle':
+              ctx.beginPath();
+              ctx.moveTo(0, -t.size);
+              ctx.lineTo(t.size * 0.866, t.size * 0.5);
+              ctx.lineTo(-t.size * 0.866, t.size * 0.5);
+              ctx.closePath();
+              ctx.fill();
+              break;
+            case 'square':
+              ctx.fillRect(-t.size * 0.7, -t.size * 0.7, t.size * 1.4, t.size * 1.4);
+              break;
+            case 'arc':
+              ctx.beginPath();
+              ctx.arc(0, 0, t.size, 0, Math.PI);
+              ctx.fill();
+              break;
+          }
+        }
+        ctx.restore();
       }
 
       // Nodes — size scales with z (closer = bigger) and firing boost.

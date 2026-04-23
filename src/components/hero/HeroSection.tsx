@@ -5,6 +5,7 @@ import CenterAnchor from './CenterAnchor';
 import HitZones from './HitZones';
 import CodeBackground from './CodeBackground';
 import CreativeBackground from './CreativeBackground';
+import NeuralBrain from './NeuralBrain';
 import './hero.css';
 
 export type Takeover = 'neutral' | 'creative' | 'tech';
@@ -101,11 +102,17 @@ export default function HeroSection() {
 
       <CodeBackground typing={takeover === 'tech'} />
 
-      <CenterAnchor
-        takeover={takeover}
-        visualTakeover={visualTakeover}
-        nav={nav}
-      />
+      {/* Brain layer — sits between the code background (z:1) and
+          the center anchor (z:5). Larger than the center column
+          and free to translate horizontally so it can lean toward
+          whichever side the viewer is hovering. All colors and
+          thinking-particle effects happen inside the canvas,
+          driven by takeover + nav. */}
+      <div className="hero-brain-layer" aria-hidden="true">
+        <NeuralBrain takeover={takeover} nav={nav} />
+      </div>
+
+      <CenterAnchor visualTakeover={visualTakeover} />
 
       <HitZones
         onEnterZone={handleEnter}

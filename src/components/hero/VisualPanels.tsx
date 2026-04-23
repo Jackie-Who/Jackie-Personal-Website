@@ -19,15 +19,15 @@ export default function VisualPanels({ creativeBackground }: Props) {
       <div className="hero-panel hero-panel-creative">
         {creativeBackground}
         <div className="hero-panel-labels">
-          <span className="hero-panel-label">Creative</span>
           <span className="hero-panel-sub">Music / Photography</span>
+          <span className="hero-panel-hint">click to see more</span>
         </div>
       </div>
       <div className="hero-panel hero-panel-center" />
       <div className="hero-panel hero-panel-tech">
         <div className="hero-panel-labels">
-          <span className="hero-panel-label">Technology</span>
           <span className="hero-panel-sub">Projects / Experience</span>
+          <span className="hero-panel-hint">click to see more</span>
         </div>
       </div>
     </div>

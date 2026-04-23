@@ -266,7 +266,12 @@
   animation: hero-return-overlay-fade-in 700ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-/* Panel labels */
+/* Panel labels
+   The big "Creative" / "Technology" headings were removed — the
+   brain physically leaning toward a side already communicates
+   which identity the viewer is summoning. What's left here is the
+   sub-caption (Music / Photography · Projects / Experience) and a
+   smaller "click to see more" hint that brightens on hover. */
 .hero-panel-labels {
   position: relative;
   z-index: 3;
@@ -275,34 +280,44 @@
   align-items: center;
   text-align: center;
   padding: 0 8px;
-}
-
-.hero-panel-label {
-  font-size: clamp(1rem, 1.4vw, 1.35rem);
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  transition: color 500ms ease, opacity 500ms ease;
+  gap: 4px;
 }
 
 .hero-panel-sub {
-  font-size: 0.8rem;
-  margin-top: 6px;
-  opacity: 0.5;
-  letter-spacing: 0.02em;
+  font-size: clamp(0.88rem, 1.15vw, 1.05rem);
+  letter-spacing: 0.03em;
+  opacity: 0.68;
   transition: color 500ms ease, opacity 500ms ease;
 }
 
-.hero-panel-creative .hero-panel-label,
-.hero-panel-creative .hero-panel-sub {
+.hero-panel-hint {
+  font-size: 0.64rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.28;
+  margin-top: 6px;
+  transition: color 500ms ease, opacity 500ms ease;
+}
+
+.hero-panel-creative .hero-panel-sub,
+.hero-panel-creative .hero-panel-hint {
   color: #d4a0cc;
   font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
   font-style: italic;
 }
 
-.hero-panel-tech .hero-panel-label,
-.hero-panel-tech .hero-panel-sub {
+.hero-panel-tech .hero-panel-sub,
+.hero-panel-tech .hero-panel-hint {
   color: #7ab0d8;
   font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  font-style: normal;
+}
+
+/* Brighten the hint on takeover so the call-to-action pulls the
+   viewer toward the click once they've already committed to hovering. */
+.hero-app[data-takeover='creative'] .hero-panel-creative .hero-panel-hint,
+.hero-app[data-takeover='tech'] .hero-panel-tech .hero-panel-hint {
+  opacity: 0.7;
 }
 
 /* ----------------------------------------------------------
@@ -554,18 +569,61 @@
   text-align: center;
 }
 
-/* Neural-web brain canvas — replaces the old BrainSvg. Colors /
-   active-hemisphere highlighting / firing / parallax all happen
-   inside the canvas, so there are no per-hemisphere CSS rules
-   here anymore. This block is just the positioning + size. */
+/* Neural-web brain — lives in its own hero-level layer (not inside
+   .hero-center) so it can translate horizontally into either side
+   panel when the viewer hovers, without being clipped by the
+   23.6 %-wide center column. Sits at z:2 — above the code overlay
+   (z:1) but BEHIND the cat / signature / description (.hero-center
+   at z:5). */
+.hero-brain-layer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  pointer-events: none;
+  /* Offset the brain's center slightly above the viewport's center.
+     padding-bottom eats flex-space below so `align-items: center`
+     lands the brain ~5 vh higher than it would otherwise. */
+  padding-bottom: 10vh;
+}
+
 .hero-neural-brain {
-  width: 180px;
-  height: 180px;
-  margin-bottom: 18px;
-  /* Canvas takes its layout size from width/height above; the
-     internal bitmap is resized to devicePixelRatio in the
-     component's resize handler so strokes stay crisp on HiDPI. */
+  /* 2.2× the old 180 px — clamp so it doesn't consume the whole
+     viewport on very large displays. */
+  width: clamp(340px, 38vw, 460px);
+  height: clamp(340px, 38vw, 460px);
   display: block;
+  /* Spring-like overshoot easing + a generous duration so the
+     "bounce toward the hovered side" reads as fluid/organic
+     rather than mechanical. The overshoot segment of this curve
+     lets the transform OVERSHOOT its target by ~8 % before
+     settling — that's what sells the blob feel. */
+  transition: transform 640ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+}
+
+/* Creative hover — brain lurches toward the left (creative side),
+   stretches a bit horizontally (like a water drop being pulled),
+   and tilts slightly. */
+.hero-app[data-takeover='creative'] .hero-neural-brain {
+  transform: translate3d(-13vw, 0, 0) scaleX(1.10) scaleY(0.94) rotate(-2deg);
+}
+
+/* Tech hover — mirror direction, same deformation / tilt. */
+.hero-app[data-takeover='tech'] .hero-neural-brain {
+  transform: translate3d(13vw, 0, 0) scaleX(1.10) scaleY(0.94) rotate(2deg);
+}
+
+/* During the expansion animation the whole hero collapses toward
+   one side, and a transform on the brain would fight that. Lock
+   the brain in place + fade it out so the page swipe reads clean. */
+.hero-app[data-expanding] .hero-neural-brain {
+  transition: transform 420ms cubic-bezier(0.4, 0, 0.2, 1), opacity 420ms ease;
+  transform: translate3d(0, 0, 0) scale(1);
+  opacity: 0;
 }
 
 /* Cat mark in hero — inherits takeover-aware palette via --cat-* vars */
@@ -776,8 +834,8 @@
   .hero-signature,
   .hero-signature-logo,
   .hero-description,
-  .hero-panel-label,
-  .hero-panel-sub {
+  .hero-panel-sub,
+  .hero-panel-hint {
     transition-duration: 0.01ms !important;
   }
   /* Neural brain respects prefers-reduced-motion internally
@@ -804,9 +862,14 @@
     padding: 0 8px;
   }
   .hero-neural-brain {
-    width: 130px;
-    height: 130px;
-    margin-bottom: 12px;
+    width: clamp(240px, 68vw, 320px);
+    height: clamp(240px, 68vw, 320px);
+  }
+  /* Tone down the bounce on narrow screens — a 13vw translate
+     would push the brain past the viewport edge on a phone. */
+  .hero-app[data-takeover='creative'] .hero-neural-brain,
+  .hero-app[data-takeover='tech'] .hero-neural-brain {
+    transform: translate3d(0, 0, 0) scale(1);
   }
   .hero-signature {
     font-size: 1.8rem;
@@ -821,10 +884,10 @@
     font-size: 0.7rem;
     max-width: 140px;
   }
-  .hero-panel-label {
-    font-size: 0.9rem;
-  }
   .hero-panel-sub {
+    font-size: 0.78rem;
+  }
+  .hero-panel-hint {
     display: none;
   }
   .hero-code {
