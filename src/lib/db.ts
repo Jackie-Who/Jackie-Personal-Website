@@ -73,6 +73,7 @@ export async function ensureSchema(): Promise<void> {
       status TEXT DEFAULT 'draft',
       sort_order INTEGER DEFAULT 0,
       date_taken TEXT,
+      aspect_ratio REAL,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
     `CREATE TABLE IF NOT EXISTS tracks (
@@ -115,6 +116,10 @@ export interface PhotoRow {
   /** ISO date string from EXIF DateTimeOriginal, or null. Used to
    *  group gallery tiles by year on the public creative page. */
   date_taken: string | null;
+  /** Natural image width / height. Measured client-side on upload
+   *  and stored so the gallery can reserve correct layout space
+   *  before the real image decodes. Null for pre-0003 rows. */
+  aspect_ratio: number | null;
   created_at: string;
 }
 
@@ -160,13 +165,13 @@ export async function insertPhoto(row: PhotoRow): Promise<void> {
   await c.execute({
     sql: `INSERT INTO photos
       (id, title, filename, r2_key, focal_length, aperture, shutter_speed, iso,
-       camera, lens, category, layout, status, sort_order, date_taken)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       camera, lens, category, layout, status, sort_order, date_taken, aspect_ratio)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       row.id, row.title, row.filename, row.r2_key,
       row.focal_length, row.aperture, row.shutter_speed, row.iso,
       row.camera, row.lens, row.category, row.layout, row.status, row.sort_order,
-      row.date_taken,
+      row.date_taken, row.aspect_ratio,
     ],
   });
 }

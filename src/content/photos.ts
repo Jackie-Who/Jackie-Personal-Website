@@ -12,9 +12,18 @@ export type PhotoLayout = 'standard' | 'wide';
 export interface Photo {
   id: string;
   title: string;
-  /** CSS gradient stand-in until real image URLs are populated. */
+  /** Real image URL (R2), when the photo came from the CMS.
+   *  `null` for the static placeholder entries — those render as a
+   *  CSS gradient via `placeholder` instead. */
+  url: string | null;
+  /** CSS gradient stand-in. Used as the background for placeholder
+   *  entries AND as the loading backdrop under real images. */
   placeholder: string;
   layout: PhotoLayout;
+  /** Image's natural aspect ratio (width / height). Populated on
+   *  upload by the admin client. Used for gallery masonry sizing
+   *  so tiles render at their true proportions without cropping. */
+  aspectRatio?: number;
   /** EXIF tags shown as pills below the image in the expanded view.
    *  We only keep the three most universally meaningful tags —
    *  focal length, camera body, lens, and category were removed in
@@ -33,6 +42,7 @@ export const photos: Photo[] = [
     id: 'p01',
     title: 'Light through vines',
     placeholder: 'linear-gradient(160deg, #3a4a28 0%, #1f2a18 55%, #0e1408 100%)',
+    url: null,
     layout: 'standard',
     aperture: 'ƒ/1.8',
     shutter: '1/125s',
@@ -43,6 +53,7 @@ export const photos: Photo[] = [
     id: 'p02',
     title: 'Rehearsal hall',
     placeholder: 'linear-gradient(200deg, #3a2e18 0%, #241d12 55%, #0e0a06 100%)',
+    url: null,
     layout: 'wide',
     aperture: 'ƒ/2.2',
     shutter: '1/60s',
@@ -53,6 +64,7 @@ export const photos: Photo[] = [
     id: 'p03',
     title: 'Still life with pears',
     placeholder: 'linear-gradient(180deg, #3a2818 0%, #281c12 65%, #120e08 100%)',
+    url: null,
     layout: 'standard',
     aperture: 'ƒ/2.8',
     shutter: '1/200s',
@@ -63,6 +75,7 @@ export const photos: Photo[] = [
     id: 'p04',
     title: 'After the rain',
     placeholder: 'linear-gradient(140deg, #1a2028 0%, #2a323c 50%, #0e1218 100%)',
+    url: null,
     layout: 'standard',
     aperture: 'ƒ/4',
     shutter: '1/500s',
@@ -73,6 +86,7 @@ export const photos: Photo[] = [
     id: 'p05',
     title: 'Concert hall (long exposure)',
     placeholder: 'linear-gradient(220deg, #3a1418 0%, #140a0c 50%, #2a1a24 100%)',
+    url: null,
     layout: 'wide',
     aperture: 'ƒ/5.6',
     shutter: '4s',
@@ -83,6 +97,7 @@ export const photos: Photo[] = [
     id: 'p06',
     title: 'Moth on the window',
     placeholder: 'linear-gradient(170deg, #1a2a28 0%, #0e1a1a 55%, #0a1010 100%)',
+    url: null,
     layout: 'standard',
     aperture: 'ƒ/2.8',
     shutter: '1/250s',
@@ -93,6 +108,7 @@ export const photos: Photo[] = [
     id: 'p07',
     title: 'Afternoon practice',
     placeholder: 'linear-gradient(190deg, #2f2228 0%, #1e1418 60%, #120a0e 100%)',
+    url: null,
     layout: 'standard',
     aperture: 'ƒ/1.8',
     shutter: '1/100s',
@@ -103,6 +119,7 @@ export const photos: Photo[] = [
     id: 'p08',
     title: 'Coastal fog',
     placeholder: 'linear-gradient(210deg, #2a3842 0%, #18242e 50%, #0a1018 100%)',
+    url: null,
     layout: 'wide',
     aperture: 'ƒ/8',
     shutter: '1/60s',
@@ -113,6 +130,7 @@ export const photos: Photo[] = [
     id: 'p09',
     title: 'Night street',
     placeholder: 'linear-gradient(160deg, #0a0e1a 0%, #14182a 55%, #1a2040 100%)',
+    url: null,
     layout: 'standard',
     aperture: 'ƒ/2',
     shutter: '1/80s',

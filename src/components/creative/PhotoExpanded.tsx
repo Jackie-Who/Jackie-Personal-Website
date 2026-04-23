@@ -131,34 +131,57 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
           data-photo-id={p.id}
           className="creative-expanded-section"
         >
-          <div
-            className="creative-expanded-image"
-            style={{ background: p.placeholder }}
-            role="img"
-            aria-label={p.title}
-          >
-            <button
-              type="button"
-              className="creative-expanded-close"
-              onClick={onClose}
-              aria-label="Return to gallery"
+          <figure className="creative-expanded-frame-figure">
+            <div
+              className="creative-expanded-image"
+              style={!p.url ? { background: p.placeholder } : undefined}
             >
-              <svg viewBox="0 0 16 16" aria-hidden="true">
-                <path
-                  d="M4 4l8 8M12 4l-8 8"
-                  stroke="currentColor"
-                  strokeWidth="1.25"
-                  strokeLinecap="round"
+              {p.url ? (
+                <img
+                  src={p.url}
+                  alt={p.title}
+                  className="creative-expanded-img"
+                  decoding="async"
                 />
-              </svg>
-            </button>
-            <span className="creative-expanded-title">{p.title}</span>
-          </div>
-          <ul className="creative-expanded-exif" aria-label="Photo metadata">
-            <li>{p.aperture}</li>
-            <li>{p.shutter}</li>
-            <li>{p.iso}</li>
-          </ul>
+              ) : null}
+              <button
+                type="button"
+                className="creative-expanded-close"
+                onClick={onClose}
+                aria-label="Return to gallery"
+              >
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  <path
+                    d="M4 4l8 8M12 4l-8 8"
+                    stroke="currentColor"
+                    strokeWidth="1.25"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* Museum-style label — small left-aligned card below
+                the image. Title sits on top in serif italic; a
+                single monospaced line beneath lists the technical
+                details; year-taken (if known) reads on the right. */}
+            <figcaption className="creative-expanded-caption">
+              <span className="creative-expanded-caption-title">{p.title}</span>
+              <span className="creative-expanded-caption-meta">
+                <span>{p.aperture}</span>
+                <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
+                <span>{p.shutter}</span>
+                <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
+                <span>{p.iso}</span>
+                {p.year ? (
+                  <>
+                    <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
+                    <span>{p.year}</span>
+                  </>
+                ) : null}
+              </span>
+            </figcaption>
+          </figure>
         </section>
       ))}
     </div>

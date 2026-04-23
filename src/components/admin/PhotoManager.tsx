@@ -147,14 +147,34 @@ interface UploadProps {
 }
 function PhotoUploadForm({ onCancel, onSaved }: UploadProps) {
   const [file, setFile] = useState<File | null>(null);
+  const [aspectRatio, setAspectRatio] = useState<number | null>(null);
   const [title, setTitle] = useState('');
-  const [layout, setLayout] = useState<'standard' | 'wide'>('standard');
   const [aperture, setAperture] = useState('');
   const [shutter, setShutter] = useState('');
   const [iso, setIso] = useState('');
   const [status, setStatus] = useState<'draft' | 'live'>('draft');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Measure the picked image's natural dimensions so the server can
+  // store the aspect ratio alongside the row (see POST handler —
+  // derives layout from this too). Runs purely in the browser; no
+  // server round-trip just to read an <img> size.
+  const handleFilePick = (picked: File | null) => {
+    setFile(picked);
+    setAspectRatio(null);
+    if (!picked) return;
+    const url = URL.createObjectURL(picked);
+    const img = new Image();
+    img.onload = () => {
+      if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+        setAspectRatio(img.naturalWidth / img.naturalHeight);
+      }
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => URL.revokeObjectURL(url);
+    img.src = url;
+  };
 
   const submit = async (saveStatus: 'draft' | 'live') => {
     if (!file) {
@@ -167,7 +187,7 @@ function PhotoUploadForm({ onCancel, onSaved }: UploadProps) {
       const fd = new FormData();
       fd.append('file', file);
       fd.append('title', title || file.name);
-      fd.append('layout', layout);
+      if (aspectRatio) fd.append('aspect_ratio', String(aspectRatio));
       fd.append('aperture', aperture);
       fd.append('shutter', shutter);
       fd.append('iso', iso);
@@ -197,29 +217,20 @@ function PhotoUploadForm({ onCancel, onSaved }: UploadProps) {
           className="admin-input"
           type="file"
           accept="image/jpeg,image/png,image/webp"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          onChange={(e) => handleFilePick(e.target.files?.[0] ?? null)}
           required
         />
         <p style={{ fontSize: '0.75rem', color: 'rgba(232,236,244,0.45)', margin: '6px 0 0' }}>
-          JPG / PNG / WebP. EXIF will be auto-extracted on upload.
+          JPG / PNG / WebP. EXIF and aspect ratio are auto-detected on upload — no need to tell us whether it's portrait or landscape.
         </p>
       </div>
 
       <div className="admin-section">
         <h2>Details</h2>
-        <div className="admin-row">
-          <label className="admin-label">
-            <span>Title</span>
-            <input className="admin-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Light through vines" />
-          </label>
-          <label className="admin-label">
-            <span>Layout</span>
-            <select className="admin-select" value={layout} onChange={(e) => setLayout(e.target.value as 'standard' | 'wide')}>
-              <option value="standard">Standard (1 col)</option>
-              <option value="wide">Wide (2 cols)</option>
-            </select>
-          </label>
-        </div>
+        <label className="admin-label">
+          <span>Title</span>
+          <input className="admin-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Light through vines" />
+        </label>
       </div>
 
       <div className="admin-section">
@@ -280,7 +291,6 @@ function PhotoEditForm({ photo, onCancel, onSaved }: EditProps) {
     try {
       const patch = {
         title: form.title,
-        layout: form.layout,
         aperture: form.aperture,
         shutter_speed: form.shutter_speed,
         iso: form.iso,
@@ -306,19 +316,10 @@ function PhotoEditForm({ photo, onCancel, onSaved }: EditProps) {
     <form className="admin-form" onSubmit={(e) => { e.preventDefault(); submit(); }}>
       <div className="admin-section">
         <h2>Details</h2>
-        <div className="admin-row">
-          <label className="admin-label">
-            <span>Title</span>
-            <input className="admin-input" value={form.title} onChange={(e) => onChange('title', e.target.value)} />
-          </label>
-          <label className="admin-label">
-            <span>Layout</span>
-            <select className="admin-select" value={form.layout} onChange={(e) => onChange('layout', e.target.value)}>
-              <option value="standard">Standard</option>
-              <option value="wide">Wide</option>
-            </select>
-          </label>
-        </div>
+        <label className="admin-label">
+          <span>Title</span>
+          <input className="admin-input" value={form.title} onChange={(e) => onChange('title', e.target.value)} />
+        </label>
       </div>
 
       <div className="admin-section">

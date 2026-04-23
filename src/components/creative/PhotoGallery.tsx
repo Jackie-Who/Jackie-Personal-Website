@@ -7,12 +7,16 @@ interface Props {
 }
 
 /**
- * Masonry-style photo grid, grouped by year. Three columns with
- * mixed tile sizes — 'wide' photos span two columns. Clicking any
- * tile transitions to the expanded view scrolled to that photo.
+ * Photo grid — column-masonry so every tile renders at its true
+ * aspect ratio (no 1:1 crop). Grouped by year.
  *
- * The group order is newest-year-first. Photos without a year fall
- * into an "Undated" section at the bottom.
+ * - Photos with a real `url` render as `<img>` inside the tile;
+ *   the browser uses the image's natural dimensions. If we have a
+ *   stored aspectRatio, the tile pre-reserves that aspect via CSS
+ *   `aspect-ratio` so there's no layout shift when the image
+ *   decodes.
+ * - Photos without a `url` (static placeholders) render as a
+ *   square gradient tile — the gradient fills the slot.
  */
 export default function PhotoGallery({ photos, onOpen }: Props) {
   const groups = useMemo(() => buildYearGroups(photos), [photos]);
@@ -33,11 +37,26 @@ export default function PhotoGallery({ photos, onOpen }: Props) {
                 key={p.id}
                 type="button"
                 role="listitem"
-                className={`creative-photo-tile${p.layout === 'wide' ? ' creative-photo-tile-wide' : ''}`}
+                className="creative-photo-tile"
                 onClick={() => onOpen(p.id)}
                 aria-label={`Open ${p.title}`}
-                style={{ background: p.placeholder }}
+                style={aspectStyle(p)}
               >
+                {p.url ? (
+                  <img
+                    src={p.url}
+                    alt={p.title}
+                    className="creative-photo-tile-img"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                ) : (
+                  <span
+                    className="creative-photo-tile-fill"
+                    style={{ background: p.placeholder }}
+                    aria-hidden="true"
+                  />
+                )}
                 <span className="creative-photo-tile-caption">{p.title}</span>
               </button>
             ))}
@@ -46,6 +65,18 @@ export default function PhotoGallery({ photos, onOpen }: Props) {
       ))}
     </div>
   );
+}
+
+function aspectStyle(p: Photo): React.CSSProperties | undefined {
+  // Reserve layout space so column-masonry has a height before the
+  // image decodes. Real images with a known ratio → use it exactly.
+  // Gradient placeholders default to a 1:1 square so they fill a
+  // recognizable slot.
+  if (p.aspectRatio && Number.isFinite(p.aspectRatio) && p.aspectRatio > 0) {
+    return { aspectRatio: String(p.aspectRatio) };
+  }
+  if (!p.url) return { aspectRatio: '1 / 1' };
+  return undefined;
 }
 
 interface YearGroup {
@@ -63,7 +94,7 @@ function buildYearGroups(photos: Photo[]): YearGroup[] {
     buckets.set(key, arr);
   }
   const entries = Array.from(buckets.entries());
-  // Sort: real years descending, 'undated' always last.
+  // Real years descending, 'undated' always last.
   entries.sort((a, b) => {
     if (a[0] === 'undated') return 1;
     if (b[0] === 'undated') return -1;

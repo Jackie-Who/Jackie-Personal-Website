@@ -35,9 +35,15 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   if (!(file instanceof File)) return err('Missing file field', 400);
 
   const title = (form.get('title') as string | null) ?? file.name;
-  const layout = ((form.get('layout') as string | null) ?? 'standard') as 'standard' | 'wide';
   const status = ((form.get('status') as string | null) ?? 'draft') as 'draft' | 'live';
   const sortOrder = Number((form.get('sort_order') as string | null) ?? 0);
+
+  // Aspect ratio is measured client-side via new Image() before
+  // upload and sent as a float. Layout is derived from it — wide
+  // (lands ≥ 1.4:1) spans more grid room, standard is the default.
+  const rawAspect = Number((form.get('aspect_ratio') as string | null) ?? '');
+  const aspectRatio = Number.isFinite(rawAspect) && rawAspect > 0 ? rawAspect : null;
+  const layout: 'standard' | 'wide' = aspectRatio && aspectRatio >= 1.4 ? 'wide' : 'standard';
 
   const buf = Buffer.from(await file.arrayBuffer());
   const exif = await extractExif(buf);
@@ -46,9 +52,14 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   // dropped columns (focal_length, camera, lens, category) stay in
   // the schema for back-compat with any pre-existing rows, but are
   // always written as NULL for new uploads.
-  const aperture = (form.get('aperture') as string | null) ?? exif.aperture;
-  const shutter = (form.get('shutter') as string | null) ?? exif.shutter;
-  const iso = (form.get('iso') as string | null) ?? exif.iso;
+  //
+  // Raw form inputs from the admin are normalized to the display
+  // format — viewer types "1.8" → stored as "ƒ/1.8", "1/250" →
+  // "1/250s", "100" → "ISO 100". Already-formatted values (e.g.
+  // EXIF auto-fill) pass through unchanged.
+  const aperture = normalizeAperture((form.get('aperture') as string | null) ?? exif.aperture);
+  const shutter = normalizeShutter((form.get('shutter') as string | null) ?? exif.shutter);
+  const iso = normalizeIso((form.get('iso') as string | null) ?? exif.iso);
 
   const id = newId('p');
   const key = buildR2Key('photos', id, file.name);
@@ -80,6 +91,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     status,
     sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
     date_taken: dateTaken,
+    aspect_ratio: aspectRatio,
     created_at: new Date().toISOString(),
   };
 
@@ -91,6 +103,58 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
   return ok({ photo: row }, 201);
 };
+
+// ------------------------------------------------------------
+// EXIF input normalizers
+//
+// The admin form lets the operator type raw numeric values ("1.8",
+// "1/250", "100") that we coerce into the pill-text format the
+// expanded view expects ("ƒ/1.8", "1/250s", "ISO 100"). Values that
+// already include the display prefix (from EXIF auto-fill, or when
+// the operator re-typed a formatted value) pass through as-is.
+// ------------------------------------------------------------
+function normalizeAperture(v: string | null | undefined): string | null {
+  if (!v) return null;
+  const s = v.trim();
+  if (!s) return null;
+  // Already formatted
+  if (/^[ƒf]\s*\/\s*\d/i.test(s)) {
+    return s.replace(/^f/i, 'ƒ').replace(/\s+/g, '');
+  }
+  // Numeric only → e.g. 1.8
+  const n = Number(s);
+  if (Number.isFinite(n) && n > 0) {
+    const rounded = Math.round(n * 10) / 10;
+    return `ƒ/${rounded}`;
+  }
+  return s;
+}
+
+function normalizeShutter(v: string | null | undefined): string | null {
+  if (!v) return null;
+  const s = v.trim();
+  if (!s) return null;
+  // Already ends in s or seconds (e.g. 4s, 1/250s)
+  if (/s$/i.test(s)) return s;
+  // Fraction like 1/250 → 1/250s
+  if (/^\d+\/\d+$/.test(s)) return `${s}s`;
+  // Bare number → seconds (e.g. 4 → 4s, 0.5 → 0.5s)
+  const n = Number(s);
+  if (Number.isFinite(n) && n > 0) return `${s}s`;
+  return s;
+}
+
+function normalizeIso(v: string | null | undefined): string | null {
+  if (!v) return null;
+  const s = v.trim();
+  if (!s) return null;
+  // Already prefixed
+  if (/^iso\s*\d/i.test(s)) return s.replace(/^iso\s*/i, 'ISO ');
+  // Bare number
+  const n = Number(s);
+  if (Number.isFinite(n) && n > 0) return `ISO ${Math.round(n)}`;
+  return s;
+}
 
 function ok(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {

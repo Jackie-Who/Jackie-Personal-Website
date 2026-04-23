@@ -122,10 +122,10 @@
   color: var(--creative-text);
   border-color: rgba(var(--creative-accent-rgb), 0.55);
   background: rgba(var(--creative-accent-rgb), 0.14);
-  box-shadow:
-    inset 0 0.5px 0 rgba(var(--creative-accent-rgb), 0.32),
-    0 10px 30px -10px rgba(0, 0, 0, 0.45);
-  transform: translateY(-1px);
+  /* No transform or shadow change on hover — stacking a translate
+     animation over a backdrop-filter causes the blur sample to
+     re-render every frame and produces a visible shimmer artifact
+     against the blurred wall. */
   outline: none;
 }
 
@@ -161,10 +161,7 @@
   color: var(--creative-text);
   border-color: rgba(var(--creative-accent-rgb), 0.55);
   background: rgba(var(--creative-accent-rgb), 0.14);
-  box-shadow:
-    inset 0 0.5px 0 rgba(var(--creative-accent-rgb), 0.32),
-    0 10px 30px -10px rgba(0, 0, 0, 0.45);
-  transform: translateY(-1px);
+  /* No transform — see note on .creative-back:hover above. */
   outline: none;
 }
 .creative-theme-toggle svg { display: block; }
@@ -593,10 +590,13 @@
   text-transform: uppercase;
 }
 
+/* Column masonry. Each tile flows at its true aspect ratio —
+   no 1:1 crop. `column-fill: balance` keeps the three columns
+   roughly equal height. */
 .creative-gallery {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 3px;
+  column-count: 3;
+  column-gap: 6px;
+  column-fill: balance;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -604,18 +604,35 @@
 
 .creative-photo-tile {
   position: relative;
-  aspect-ratio: 1;
+  display: block;
+  width: 100%;
+  margin: 0 0 6px;
   padding: 0;
   border: 0;
   border-radius: 2px;
   cursor: pointer;
   overflow: hidden;
+  background: transparent;
+  /* Keep a tile together across column breaks so a tall portrait
+     doesn't split mid-image when column-masonry rebalances. */
+  break-inside: avoid;
   transition: transform 260ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 260ms ease;
 }
 
-.creative-photo-tile-wide {
-  grid-column: span 2;
-  aspect-ratio: 2 / 1;
+.creative-photo-tile-img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Fallback fill for placeholder (no-url) photos — paints the
+   gradient across the reserved aspect slot. */
+.creative-photo-tile-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
 }
 
 .creative-photo-tile:hover,
@@ -745,45 +762,70 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  padding: 24px 0 36px;
+  gap: 18px;
+  padding: 20px clamp(16px, 3vw, 40px) 28px;
 }
 
+.creative-expanded-frame-figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  max-width: min(92vw, 1400px);
+  width: 100%;
+}
+
+/* The image container sizes itself to the <img> inside. max-height
+   keeps the image within the viewport on every display size —
+   tall portraits shrink to fit, wide landscapes show at full width.
+   No forced aspect ratio, no cropping. */
 .creative-expanded-image {
   position: relative;
-  width: 90%;
-  max-width: 1200px;
-  aspect-ratio: 4 / 3;
-  border-radius: 6px;
+  max-width: 100%;
+  /* Leave room for the header-area + the museum caption below. */
+  max-height: calc(100vh - 180px);
+  max-height: calc(100svh - 180px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
   overflow: hidden;
-  display: flex;
-  align-items: flex-end;
-  padding: 24px;
+  align-self: center;
 }
 
-.creative-expanded-title {
-  font-size: 1rem;
-  font-style: italic;
-  color: rgba(255, 255, 255, 0.85);
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+.creative-expanded-img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 180px);
+  max-height: calc(100svh - 180px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
 }
 
+/* Close X — fully hidden until the image is hovered, then fades
+   in. No backdrop-filter (it would flicker over the blur wall —
+   the bg is a solid-ish black so the button reads cleanly against
+   any photo). Stays visible while focused via keyboard too. */
 .creative-expanded-close {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 26px;
-  height: 26px;
+  top: 14px;
+  right: 14px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.55);
   border: 0;
   padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.25);
-  transition: color 220ms ease, background 220ms ease;
+  color: rgba(255, 255, 255, 0.9);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease, background 200ms ease;
 }
 
 .creative-expanded-close svg {
@@ -792,43 +834,54 @@
   pointer-events: none;
 }
 
-.creative-expanded-image:hover .creative-expanded-close {
-  color: rgba(255, 255, 255, 0.7);
+.creative-expanded-image:hover .creative-expanded-close,
+.creative-expanded-image:focus-within .creative-expanded-close {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .creative-expanded-close:hover,
 .creative-expanded-close:focus-visible {
-  color: rgba(255, 255, 255, 1);
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
   outline: none;
 }
 
-.creative-expanded-exif {
+/* Museum-style caption block. Reads like a wall plate next to the
+   artwork — title in serif italic on top, technical details in
+   quiet monospace underneath. Left-aligned, sitting at the same
+   left edge as the image. */
+.creative-expanded-caption {
   display: flex;
-  gap: 7px;
-  flex-wrap: wrap;
-  justify-content: center;
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  max-width: 90%;
+  flex-direction: column;
+  gap: 4px;
+  align-self: flex-start;
+  padding: 0 2px;
+  max-width: 100%;
 }
 
-.creative-expanded-exif li {
-  font-size: 0.65rem;
+.creative-expanded-caption-title {
+  font-size: 1.05rem;
+  font-style: italic;
+  color: var(--creative-text);
+  letter-spacing: 0.005em;
+  line-height: 1.2;
+}
+
+.creative-expanded-caption-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
   font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-style: normal;
+  font-size: 0.72rem;
   color: var(--creative-text-muted);
-  padding: 4px 10px;
-  border: 0.5px solid var(--creative-border);
-  border-radius: 8px;
-  background: var(--creative-surface);
   letter-spacing: 0.04em;
 }
 
-.creative-expanded-exif-category {
-  color: var(--creative-text-secondary) !important;
-  font-style: italic;
-  font-family: 'Playfair Display', Georgia, serif !important;
+.creative-expanded-caption-dot {
+  opacity: 0.55;
 }
 
 /* -------------------------------------------------------
@@ -866,10 +919,7 @@
    ------------------------------------------------------- */
 @media (max-width: 720px) {
   .creative-gallery {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .creative-photo-tile-wide {
-    grid-column: span 2;
+    column-count: 2;
   }
   .creative-music {
     border-right: 0;

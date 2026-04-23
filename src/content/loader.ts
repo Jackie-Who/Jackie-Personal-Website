@@ -47,10 +47,13 @@ function rowToPhoto(r: PhotoRow): Photo {
   return {
     id: r.id,
     title: r.title,
-    // R2 URL replaces the CSS-gradient placeholder so the gallery
-    // tiles + expanded view show the real image.
-    placeholder: `url(${r2PublicUrl(r.r2_key)}) center/cover no-repeat, linear-gradient(160deg,#1e1428,#0e0a12)`,
+    // Real image URL — components render it as <img> with
+    // object-fit: contain so the photo shows at true aspect ratio.
+    url: r2PublicUrl(r.r2_key),
+    // Subtle gradient painted behind the <img> while it decodes.
+    placeholder: 'linear-gradient(160deg, #1e1e24 0%, #0e0e12 100%)',
     layout: (r.layout === 'wide' ? 'wide' : 'standard') as Photo['layout'],
+    aspectRatio: r.aspect_ratio ?? undefined,
     aperture: r.aperture ?? '—',
     shutter: r.shutter_speed ?? '—',
     iso: r.iso ?? '—',

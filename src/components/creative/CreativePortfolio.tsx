@@ -27,7 +27,9 @@ export default function CreativePortfolio({ photos, tracks }: Props) {
   const [view, setView] = useState<View>('gallery');
   const [expandedStart, setExpandedStart] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
-  const [theme, setTheme] = useState<CreativeTheme>('dark');
+  // Default to light on first visit. Last chosen theme is still
+  // restored from localStorage after mount (see useEffect below).
+  const [theme, setTheme] = useState<CreativeTheme>('light');
   // Music-panel size is lifted up so the header-bar toggle and the
   // drag handle both drive the same source of truth.
   const [musicSize, setMusicSize] = useState<PanelSize>('expanded');

@@ -34,11 +34,13 @@ const [photos, tracks] = await Promise.all([loadPhotos(), loadTracks()]);
   .creative-body main {
     margin: 0;
     padding: 0;
-    /* Pre-hydration bg. The React app paints over this with a
-       themed bg (dark Mist or light Cream) once mounted, but
-       until then we show a neutral dark to avoid a flash of bright
-       white while the JS bundle downloads + hydrates. */
-    background: #0d0f13;
+    /* Pre-hydration bg — matches the default Light/Cream theme so
+       first-time visitors don't see a dark flash while the React
+       bundle downloads and hydrates. Returning visitors whose
+       last-selected theme was dark will still briefly see cream
+       before the app paints; the `.creative-body-light` class
+       below holds the same cream color for that transition. */
+    background: #f5eedf;
   }
   .creative-body.creative-body-light,
   .creative-body.creative-body-light main {
