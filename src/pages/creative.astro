@@ -29,22 +29,40 @@ const [photos, tracks] = await Promise.all([loadPhotos(), loadTracks()]);
   </main>
 </BaseLayout>
 
+{/* Pre-hydration theme restore. Runs before the React bundle loads,
+    so returning visitors who last picked dark see a dark bg (not a
+    cream flash) for the split-second before CreativePortfolio
+    hydrates. `is:inline` prevents Astro from bundling this — it
+    runs synchronously and blocks nothing meaningful. */}
+<script is:inline>
+  (function () {
+    try {
+      const saved = window.localStorage.getItem('creative-theme');
+      const theme = saved === 'dark' ? 'dark' : 'light';
+      document.body.classList.add(theme === 'light' ? 'creative-body-light' : 'creative-body-dark');
+    } catch {
+      document.body.classList.add('creative-body-light');
+    }
+  })();
+</script>
+
 <style is:global>
   .creative-body,
   .creative-body main {
     margin: 0;
     padding: 0;
-    /* Pre-hydration bg — matches the default Light/Cream theme so
-       first-time visitors don't see a dark flash while the React
-       bundle downloads and hydrates. Returning visitors whose
-       last-selected theme was dark will still briefly see cream
-       before the app paints; the `.creative-body-light` class
-       below holds the same cream color for that transition. */
-    background: #f5eedf;
   }
+  /* The body bg is what leaks through on mobile overscroll, so it
+     needs to actually track the chosen theme — matching the
+     --creative-bg value for each mode below. Without this, dark-mode
+     users saw cream flashing through when they bounce-scrolled. */
   .creative-body.creative-body-light,
   .creative-body.creative-body-light main {
-    background: #f5eedf;
+    background: #f5eedf;   /* Cream */
+  }
+  .creative-body.creative-body-dark,
+  .creative-body.creative-body-dark main {
+    background: #0d0f13;   /* Mist near-black */
   }
 </style>
 

@@ -74,6 +74,7 @@ export async function ensureSchema(): Promise<void> {
       sort_order INTEGER DEFAULT 0,
       date_taken TEXT,
       aspect_ratio REAL,
+      blur_data_url TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
     `CREATE TABLE IF NOT EXISTS tracks (
@@ -120,6 +121,12 @@ export interface PhotoRow {
    *  and stored so the gallery can reserve correct layout space
    *  before the real image decodes. Null for pre-0003 rows. */
   aspect_ratio: number | null;
+  /** Pre-blurred, downsampled base64 JPEG used as the fixed
+   *  "from image" wall in the expanded photo viewer. Baked at
+   *  upload time so the live blur filter never has to run over
+   *  the full-res image. Null for pre-0004 rows — the admin
+   *  client backfills those on next visit. */
+  blur_data_url: string | null;
   created_at: string;
 }
 
@@ -165,13 +172,13 @@ export async function insertPhoto(row: PhotoRow): Promise<void> {
   await c.execute({
     sql: `INSERT INTO photos
       (id, title, filename, r2_key, focal_length, aperture, shutter_speed, iso,
-       camera, lens, category, layout, status, sort_order, date_taken, aspect_ratio)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       camera, lens, category, layout, status, sort_order, date_taken, aspect_ratio, blur_data_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       row.id, row.title, row.filename, row.r2_key,
       row.focal_length, row.aperture, row.shutter_speed, row.iso,
       row.camera, row.lens, row.category, row.layout, row.status, row.sort_order,
-      row.date_taken, row.aspect_ratio,
+      row.date_taken, row.aspect_ratio, row.blur_data_url,
     ],
   });
 }

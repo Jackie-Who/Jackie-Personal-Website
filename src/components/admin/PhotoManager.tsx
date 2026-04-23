@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface PhotoRow {
   id: string;
@@ -15,7 +15,66 @@ interface PhotoRow {
   layout: string;
   status: string;
   sort_order: number;
+  /** Present on rows coming from the API (computed server-side from
+   *  r2_key + R2_PUBLIC_URL). Used for the one-shot blur backfill. */
+  public_url?: string;
+  /** Pre-blurred base64 data URL. Null / undefined on rows uploaded
+   *  before migration 0004; the admin auto-backfills those on mount. */
+  blur_data_url?: string | null;
   created_at: string;
+}
+
+// ------------------------------------------------------------
+// Blur data URL generator — used by both upload + backfill paths.
+//
+// Downsamples the image to ~32 px wide and encodes as JPEG q=0.55.
+// The downscale alone smooths high-freq detail; a small CSS-side
+// blur in creative.css cleans up whatever pixel boundaries the
+// browser's upscaling shows. End result: ~800 bytes base64, plenty
+// to evoke the photo's color mood without any live filter pass.
+// ------------------------------------------------------------
+async function generateBlurDataUrl(source: File | string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const cleanup: (() => void)[] = [];
+    const img = new Image();
+    // Only set crossOrigin when loading from a URL (backfill case).
+    // For File inputs we use an object URL on our own origin — no
+    // CORS handshake needed, and setting crossOrigin would actually
+    // cause a tainted-canvas error on some browsers for blob: URLs.
+    if (typeof source === 'string') img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const maxDim = 32;
+        const ratio = img.naturalWidth / img.naturalHeight;
+        if (ratio >= 1) {
+          canvas.width = maxDim;
+          canvas.height = Math.max(1, Math.round(maxDim / ratio));
+        } else {
+          canvas.height = maxDim;
+          canvas.width = Math.max(1, Math.round(maxDim * ratio));
+        }
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { cleanup.forEach((fn) => fn()); resolve(null); return; }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.55);
+        cleanup.forEach((fn) => fn());
+        resolve(dataUrl);
+      } catch {
+        cleanup.forEach((fn) => fn());
+        resolve(null);
+      }
+    };
+    img.onerror = () => { cleanup.forEach((fn) => fn()); resolve(null); };
+
+    if (typeof source === 'string') {
+      img.src = source;
+    } else {
+      const url = URL.createObjectURL(source);
+      cleanup.push(() => URL.revokeObjectURL(url));
+      img.src = url;
+    }
+  });
 }
 
 type Mode = 'list' | 'upload' | 'edit';
@@ -26,6 +85,12 @@ export default function PhotoManager() {
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>('list');
   const [editing, setEditing] = useState<PhotoRow | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
+  // Ids we've already attempted to backfill this session — stops the
+  // post-refresh re-render from re-triggering generation for photos
+  // where the crossOrigin fetch genuinely failed (e.g. R2 CORS not
+  // yet configured for GET).
+  const backfillTriedRef = useRef<Set<string>>(new Set());
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -45,6 +110,45 @@ export default function PhotoManager() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // One-shot backfill: for any photo already uploaded before
+  // migration 0004 (blur_data_url IS NULL), fetch the full-res image
+  // over CORS, downsample + encode to a blur data URL, PATCH the row.
+  // Runs once per photo-id per session — silent on failure so the
+  // rest of the admin UI stays responsive.
+  useEffect(() => {
+    if (loading || photos.length === 0) return;
+    const needs = photos.filter(
+      (p) => !p.blur_data_url && p.public_url && !backfillTriedRef.current.has(p.id),
+    );
+    if (needs.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      setBackfilling(true);
+      let anyUpdated = false;
+      for (const p of needs) {
+        if (cancelled) break;
+        backfillTriedRef.current.add(p.id);
+        const blur = await generateBlurDataUrl(p.public_url as string);
+        if (!blur) continue;
+        try {
+          const r = await fetch(`/api/photos/${p.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ blur_data_url: blur }),
+          });
+          if (r.ok) anyUpdated = true;
+        } catch {
+          /* retry on next mount */
+        }
+      }
+      if (!cancelled) {
+        setBackfilling(false);
+        if (anyUpdated) refresh();
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [loading, photos, refresh]);
 
   const onDelete = useCallback(
     async (id: string) => {
@@ -98,6 +202,11 @@ export default function PhotoManager() {
         </button>
       </div>
       {error ? <div className="admin-error">{error}</div> : null}
+      {backfilling ? (
+        <p style={{ color: 'rgba(232,236,244,0.55)', fontSize: '0.78rem', fontStyle: 'italic' }}>
+          Generating blur previews for pre-existing photos… (one-time, runs in the background)
+        </p>
+      ) : null}
       {loading ? (
         <p style={{ color: 'rgba(232,236,244,0.5)' }}>Loading…</p>
       ) : photos.length === 0 ? (
@@ -148,6 +257,7 @@ interface UploadProps {
 function PhotoUploadForm({ onCancel, onSaved }: UploadProps) {
   const [file, setFile] = useState<File | null>(null);
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
+  const [blurDataUrl, setBlurDataUrl] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [aperture, setAperture] = useState('');
   const [shutter, setShutter] = useState('');
@@ -167,6 +277,7 @@ function PhotoUploadForm({ onCancel, onSaved }: UploadProps) {
   const handleFilePick = async (picked: File | null) => {
     setFile(picked);
     setAspectRatio(null);
+    setBlurDataUrl(null);
     setAperture('');
     setShutter('');
     setIso('');
@@ -185,6 +296,12 @@ function PhotoUploadForm({ onCancel, onSaved }: UploadProps) {
     };
     img.onerror = () => URL.revokeObjectURL(objectUrl);
     img.src = objectUrl;
+
+    // Pre-bake the blur backdrop while we have the local bytes —
+    // far cheaper than round-tripping through R2 just to downsample.
+    generateBlurDataUrl(picked).then((blur) => {
+      if (blur) setBlurDataUrl(blur);
+    });
 
     // EXIF — fills the three displayed fields + captures the
     // capture-date for year grouping. Silent on failure so the
@@ -281,6 +398,7 @@ function PhotoUploadForm({ onCancel, onSaved }: UploadProps) {
           shutter,
           iso,
           date_taken: dateTaken,
+          blur_data_url: blurDataUrl,
           status: saveStatus,
         }),
       });

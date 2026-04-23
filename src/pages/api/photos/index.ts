@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { isAuthenticated } from '@/lib/auth';
 import { listPhotos, insertPhoto, type PhotoRow } from '@/lib/db';
+import { r2PublicUrl } from '@/lib/r2';
 
 export const prerender = false;
 
@@ -22,7 +23,17 @@ export const GET: APIRoute = async ({ cookies }) => {
   if (!(await isAuthenticated(cookies))) return err('Unauthorized', 401);
   try {
     const rows = await listPhotos();
-    return ok({ photos: rows });
+    // Enrich with the public R2 URL so the admin client can
+    // re-download each image (e.g. to backfill blur_data_url for
+    // rows uploaded before migration 0004). The value is derivable
+    // from r2_key + R2_PUBLIC_URL, but only the server has those env
+    // vars — cheaper to compute once here than expose R2_PUBLIC_URL
+    // as a public/build-time var.
+    const enriched = rows.map((r) => ({
+      ...r,
+      public_url: r2PublicUrl(r.r2_key),
+    }));
+    return ok({ photos: enriched });
   } catch (e) {
     return err(describe(e), 500);
   }
@@ -40,6 +51,10 @@ interface CreatePhotoBody {
   status?: 'draft' | 'live';
   sort_order?: number | string;
   date_taken?: string | null;
+  /** Base64 data URL of a ~32px pre-blurred JPEG of this photo.
+   *  Generated client-side at upload. Used to paint a fixed
+   *  "from image" wall in the expanded photo viewer. */
+  blur_data_url?: string | null;
 }
 
 export const POST: APIRoute = async ({ request, cookies }) => {
@@ -79,6 +94,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   const iso = normalizeIso(body.iso ?? null);
 
   const dateTaken = (body.date_taken ?? null) || null;
+  const blurDataUrl = typeof body.blur_data_url === 'string' && body.blur_data_url.startsWith('data:')
+    ? body.blur_data_url
+    : null;
 
   const row: PhotoRow = {
     id,
@@ -97,6 +115,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     sort_order: sortOrder,
     date_taken: dateTaken,
     aspect_ratio: aspectRatio,
+    blur_data_url: blurDataUrl,
     created_at: new Date().toISOString(),
   };
 

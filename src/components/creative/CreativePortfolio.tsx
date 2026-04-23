@@ -27,30 +27,34 @@ export default function CreativePortfolio({ photos, tracks }: Props) {
   const [view, setView] = useState<View>('gallery');
   const [expandedStart, setExpandedStart] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
-  // Default to light on first visit. Last chosen theme is still
-  // restored from localStorage after mount (see useEffect below).
-  const [theme, setTheme] = useState<CreativeTheme>('light');
+  // Resolve the visitor's preferred theme synchronously from
+  // localStorage so the very first React render already uses the
+  // right theme. Without this, returning dark-mode users saw a
+  // single-frame flash of the light palette before a second render
+  // flipped it. Safe to touch localStorage — this component is
+  // client:only, never runs during SSR.
+  const [theme, setTheme] = useState<CreativeTheme>(() => {
+    try {
+      const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
+      if (saved === 'dark' || saved === 'light') return saved;
+    } catch {
+      /* storage may be unavailable in some embedding contexts */
+    }
+    return 'light';
+  });
   // Music-panel size is lifted up so the header-bar toggle and the
   // drag handle both drive the same source of truth.
   const [musicSize, setMusicSize] = useState<PanelSize>('expanded');
 
-  // Hydrate from localStorage on mount. We default to dark to avoid
-  // flashing a light panel if the viewer last chose dark — the
-  // server HTML is dark-first too.
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
-      if (saved === 'light' || saved === 'dark') setTheme(saved);
-    } catch {
-      /* storage may be unavailable in some embedding contexts */
-    }
-  }, []);
-
-  // Keep the body bg in sync with theme — otherwise the Astro
-  // pre-hydration style on body.creative-body is whatever the
-  // SSR rendered, which won't flip when the visitor toggles.
+  // Keep the body bg in sync with theme. Both classes are mutually
+  // exclusive — the Astro pre-hydration script on creative.astro
+  // adds one of them before React boots, and we flip between them
+  // as the viewer toggles. Without this, mobile overscroll / any
+  // area outside .creative-app (which has its own bg) reveals the
+  // wrong color behind the app.
   useEffect(() => {
     document.body.classList.toggle('creative-body-light', theme === 'light');
+    document.body.classList.toggle('creative-body-dark', theme === 'dark');
   }, [theme]);
 
 

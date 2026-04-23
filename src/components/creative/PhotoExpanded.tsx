@@ -159,31 +159,30 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
                   />
                 </svg>
               </button>
-
-              {/* Museum-style label — overlaid as a glass pill in the
-                  bottom-left of the image. Title sits on top in serif
-                  italic; a single monospaced line beneath lists the
-                  technical details. Lives inside the image box so the
-                  whole section fits a single viewport (no scroll to
-                  reveal the caption). */}
-              <figcaption className="creative-expanded-caption">
-                <span className="creative-expanded-caption-title">{p.title}</span>
-                <span className="creative-expanded-caption-meta">
-                  <span>{p.aperture}</span>
-                  <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
-                  <span>{p.shutter}</span>
-                  <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
-                  <span>{p.iso}</span>
-                  {p.year ? (
-                    <>
-                      <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
-                      <span>{p.year}</span>
-                    </>
-                  ) : null}
-                </span>
-              </figcaption>
             </div>
           </figure>
+
+          {/* Museum-style wall label — sits on the page background
+              (NOT overlaid on the image) in the bottom-right of the
+              section. Glass chrome pulls from the creative-palette
+              CSS vars so it reads correctly in both dark Mist and
+              light Cream modes. */}
+          <figcaption className="creative-expanded-caption">
+            <span className="creative-expanded-caption-title">{p.title}</span>
+            <span className="creative-expanded-caption-meta">
+              <span>{p.aperture}</span>
+              <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
+              <span>{p.shutter}</span>
+              <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
+              <span>{p.iso}</span>
+              {p.year ? (
+                <>
+                  <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
+                  <span>{p.year}</span>
+                </>
+              ) : null}
+            </span>
+          </figcaption>
         </section>
       ))}
     </div>
@@ -236,13 +235,24 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
 function resolveWallStyle(mode: BgMode, photo: Photo | undefined): React.CSSProperties {
   if (mode === 'blur') {
     if (!photo) return {};
-    // Real photos (with a `url`) get their own bytes painted as the
-    // backdrop via `url(…)`; the CSS ::before in creative.css blurs
-    // that image to produce the Lightroom-style "from image" wall.
-    // Placeholder entries (pre-CMS static data, `url` = null) fall
-    // back to their CSS gradient — still produces a coherent tint.
-    const wall = photo.url ? `url("${photo.url}")` : photo.placeholder;
-    return { ['--creative-wall-image' as unknown as string]: wall } as React.CSSProperties;
+    // Priority order for the "from image" wall:
+    //   1. `blurDataUrl` — a 32px pre-blurred JPEG baked at upload.
+    //      Painted with a very light CSS blur to smooth pixel edges.
+    //      This is the path that avoids the shimmer artifact; the
+    //      backdrop is static, nothing to re-sample on neighbor
+    //      hover.
+    //   2. `url` — fall back to the full-res photo for any row
+    //      that hasn't been backfilled yet (runs through the old
+    //      60 px CSS blur). Still usable; will shimmer like before.
+    //   3. `placeholder` gradient — static data with no bytes.
+    let wall: string;
+    if (photo.blurDataUrl) wall = `url("${photo.blurDataUrl}")`;
+    else if (photo.url) wall = `url("${photo.url}")`;
+    else wall = photo.placeholder;
+    return {
+      ['--creative-wall-image' as unknown as string]: wall,
+      ['--creative-wall-blur-radius' as unknown as string]: photo.blurDataUrl ? '6px' : '60px',
+    } as React.CSSProperties;
   }
   const preset = BG_PRESETS.find((p) => p.id === mode);
   if (!preset) return {};

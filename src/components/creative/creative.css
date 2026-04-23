@@ -694,35 +694,52 @@
   scrollbar-color: rgba(var(--creative-accent-rgb), 0.28) transparent;
 }
 
-/* Blur wall — fills the scroll container with a heavily-blurred
-   copy of the active photo. Sits behind the image sections via
-   z-index: -1 (stays within the isolated stacking context). */
+/* Blur wall — fills the scroll container with the photo's
+   pre-blurred backdrop. Sits behind the image sections via
+   z-index: -1 (stays within the isolated stacking context).
+   --creative-wall-blur-radius is set inline by PhotoExpanded —
+   ~6px when the backdrop is already a tiny pre-baked JPEG (just
+   smooths the upscale), ~60px when we're falling back to the
+   full-res original. The 6px case is the one that stops the
+   shimmer — the whole backdrop is bitmap-cheap so nothing has
+   to recompute on neighbor hover. */
 .creative-expanded[data-bg-mode='blur']::before {
   content: '';
   position: absolute;
   inset: -40px;
   z-index: -1;
   background: var(--creative-wall-image, #1a1020) center / cover no-repeat;
-  filter: blur(60px) saturate(140%) brightness(0.7);
-  transition: background 280ms ease;
+  filter: blur(var(--creative-wall-blur-radius, 60px)) saturate(140%) brightness(0.82);
   pointer-events: none;
 }
 
-/* ---- Wall-color control (pill row, anchored bottom-right) ---- */
+/* Light-mode twin — lift brightness so the photo colors don't get
+   crushed against the cream canvas the rest of the page uses. */
+.creative-app[data-theme='light'] .creative-expanded[data-bg-mode='blur']::before {
+  filter: blur(var(--creative-wall-blur-radius, 60px)) saturate(130%) brightness(1.05);
+}
+
+/* ---- Wall-color control (pill row, anchored bottom-left) ----
+   Mirrors the glass treatment of the back / theme pills top-left
+   so the two clusters read as a matched pair. Moved to bottom-LEFT
+   because the caption now lives bottom-RIGHT — otherwise the two
+   pills would collide on narrow viewports. */
 .creative-expanded-bg-ctrl {
   position: absolute;
   bottom: 18px;
-  right: 18px;
+  left: 22px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 6px 8px;
-  background: rgba(16, 10, 20, 0.62);
-  backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
-  border: 0.5px solid rgba(var(--creative-accent-rgb), 0.18);
+  background: rgba(var(--creative-glass-rgb), 0.42);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  border: 0.5px solid rgba(var(--creative-accent-rgb), 0.22);
   border-radius: 999px;
-  box-shadow: 0 6px 18px -10px rgba(0, 0, 0, 0.5);
+  box-shadow:
+    inset 0 0.5px 0 rgba(var(--creative-accent-rgb), 0.24),
+    0 8px 24px -10px rgba(0, 0, 0, 0.35);
   z-index: 4;
 }
 
@@ -756,17 +773,22 @@
 }
 
 .creative-expanded-section {
-  /* Each section is exactly one viewport tall so scroll-snap moves
-     you one image at a time and the caption pill (absolute-positioned
-     inside the image) never requires scrolling to reveal. */
+  /* Each section is exactly one viewport tall; the padding frames
+     the image with breathing room on every edge so you never see
+     the edge of the neighboring section bleeding in while scrolling.
+     Caption pill + wall-color pill live in this same section and
+     position themselves against its box. */
+  position: relative;
   height: 100%;
   min-height: 100%;
   scroll-snap-align: start;
+  scroll-snap-stop: always;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: clamp(24px, 4vh, 56px) clamp(16px, 3vw, 40px);
+  padding: 56px clamp(20px, 3vw, 48px) 96px;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .creative-expanded-frame-figure {
@@ -796,13 +818,15 @@
 
 /* Image size caps live directly on the <img> (decoupled from
    parent height to avoid a circular %-based chain on the flex
-   ancestors). Leaves ~96px of breathing room at top/bottom for the
-   header-area pills and bg-control row so nothing overlaps. */
+   ancestors). Matches the section padding total (56 top + 96
+   bottom = 152 px reserved for header-area pills + caption +
+   wall-color control) so the image never overflows the section
+   and peeks into the next one during scroll-snap. */
 .creative-expanded-img {
   display: block;
   max-width: min(92vw, 1400px);
-  max-height: calc(100vh - 96px);
-  max-height: calc(100svh - 96px);
+  max-height: calc(100vh - 152px);
+  max-height: calc(100svh - 152px);
   width: auto;
   height: auto;
 }
@@ -810,13 +834,15 @@
 /* Close X — fully hidden until the image is hovered, then fades
    in. No backdrop-filter (it would flicker over the blur wall —
    the bg is a solid-ish black so the button reads cleanly against
-   any photo). Stays visible while focused via keyboard too. */
+   any photo). Stays visible while focused via keyboard too.
+   Offset bumped to 18px so the X reads as clearly nested inside
+   the image frame rather than welded to the corner. */
 .creative-expanded-close {
   position: absolute;
-  top: 14px;
-  right: 14px;
-  width: 28px;
-  height: 28px;
+  top: 18px;
+  right: 18px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.55);
   border: 0;
@@ -825,7 +851,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.92);
   opacity: 0;
   pointer-events: none;
   transition: opacity 200ms ease, background 200ms ease;
@@ -850,56 +876,55 @@
   outline: none;
 }
 
-/* Museum-style caption block — floats as a glass pill pinned to
-   the image's bottom-left corner so it reads like a wall plate
-   under the artwork without pushing the image upward. Chrome matches
-   the back / theme-toggle pills top-left (same backdrop-filter, same
-   border treatment) so the whole expanded view reads as one system.
-   Text colors fix to a dark-on-glass palette regardless of the page
-   theme — the pill sits on top of arbitrary photo content, so it
-   can't inherit the page's light/dark variables without risking
-   illegibility against the photo behind it. */
+/* Museum-style caption — glass pill anchored to the section's
+   bottom-right corner, rendered on the background (NOT overlaid on
+   the image). Chrome pulls from the creative-palette CSS vars
+   (glass-rgb, accent-rgb, text) so it matches the back / theme
+   pills in both Mist dark and Cream light modes. In dark mode you
+   get a near-black translucent plate with sky-accent border + pale
+   text; in light mode it's a frosted white plate with sky-blue
+   border + navy text — same chrome treatment as the corner pills. */
 .creative-expanded-caption {
   position: absolute;
-  left: 18px;
+  right: 22px;
   bottom: 18px;
   z-index: 3;
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
   gap: 4px;
-  max-width: min(78%, 640px);
-  padding: 10px 16px 11px;
+  max-width: min(60%, 520px);
+  padding: 10px 18px 11px;
   border-radius: 14px;
-  background: rgba(16, 10, 20, 0.55);
-  backdrop-filter: blur(18px) saturate(160%);
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  border: 0.5px solid rgba(255, 255, 255, 0.18);
+  background: rgba(var(--creative-glass-rgb), 0.42);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  border: 0.5px solid rgba(var(--creative-accent-rgb), 0.22);
   box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.18),
-    0 8px 22px -12px rgba(0, 0, 0, 0.6);
+    inset 0 0.5px 0 rgba(var(--creative-accent-rgb), 0.24),
+    0 8px 24px -10px rgba(0, 0, 0, 0.35);
   pointer-events: none;
 }
 
 .creative-expanded-caption-title {
   font-size: 1rem;
   font-style: italic;
-  color: rgba(255, 255, 255, 0.96);
+  color: var(--creative-text);
   letter-spacing: 0.005em;
   line-height: 1.2;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 .creative-expanded-caption-meta {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px;
   flex-wrap: wrap;
   font-family: 'JetBrains Mono', 'Courier New', monospace;
   font-style: normal;
   font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--creative-text-muted);
   letter-spacing: 0.04em;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 .creative-expanded-caption-dot {

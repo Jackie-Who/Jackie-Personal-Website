@@ -35,6 +35,12 @@ export interface Photo {
    *  the gallery. Populated from EXIF DateTimeOriginal by the
    *  CMS upload path; manually set on static placeholder data. */
   year?: number;
+  /** Pre-blurred downsampled JPEG as a base64 data URL. Painted
+   *  as the expanded-view "from image" wall so the viewer never
+   *  runs a live 60px blur over the full-res photo. Optional —
+   *  static placeholders and pre-0004 CMS rows fall back to
+   *  whatever `placeholder` / `url` is present. */
+  blurDataUrl?: string;
 }
 
 export const photos: Photo[] = [

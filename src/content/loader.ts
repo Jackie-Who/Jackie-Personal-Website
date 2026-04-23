@@ -58,6 +58,7 @@ function rowToPhoto(r: PhotoRow): Photo {
     shutter: r.shutter_speed ?? '—',
     iso: r.iso ?? '—',
     year,
+    blurDataUrl: r.blur_data_url ?? undefined,
   };
 }
 
