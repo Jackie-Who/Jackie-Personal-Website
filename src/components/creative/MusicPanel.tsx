@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Track } from '@/content/tracks';
 import TrackList from './TrackList';
 import SpectrumBars from './SpectrumBars';
+import MusicNoteBurst from './MusicNoteBurst';
 import { useAudioPlayer } from './AudioPlayer';
 
 export type PanelSize = 'compact' | 'expanded';
@@ -137,6 +138,13 @@ export default function MusicPanel({ tracks, initialTrackId, size, onSizeChange 
       style={{ width: `${effectiveWidth}px` }}
       aria-label="Music player"
     >
+      {/* Whimsy — floating music notes spawn from the cursor while
+          the viewer hovers anywhere over the music panel. Purely
+          decorative; respects prefers-reduced-motion and doesn't
+          capture any pointer events (aria-hidden, pointer-events:none
+          on the container). */}
+      <MusicNoteBurst containerRef={panelRef} />
+
       {/* In-flow header over the music column only. Replaces the
           previous full-width top bar — the gallery now has a floating
           pill (CreativeLeftPill) while the music panel owns its own
