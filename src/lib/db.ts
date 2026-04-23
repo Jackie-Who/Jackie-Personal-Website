@@ -154,7 +154,15 @@ export interface TrackRow {
 export async function listPhotos(opts?: { publishedOnly?: boolean }): Promise<PhotoRow[]> {
   const c = getDb();
   const where = opts?.publishedOnly ? "WHERE status = 'live'" : '';
-  const r = await c.execute(`SELECT * FROM photos ${where} ORDER BY sort_order ASC, created_at DESC`);
+  // Sort by EXIF capture date (newest first) when we have it, falling
+  // back to upload time for photos without EXIF DateTimeOriginal (scans,
+  // re-exported files that lost metadata, etc.). sort_order stays the
+  // primary key so admins can still pin specific photos to the top.
+  // Result: within each year bucket, photos appear in the exact
+  // chronological order they were taken.
+  const r = await c.execute(
+    `SELECT * FROM photos ${where} ORDER BY sort_order ASC, COALESCE(date_taken, created_at) DESC`,
+  );
   return r.rows as unknown as PhotoRow[];
 }
 
