@@ -942,7 +942,10 @@
 /* Extended hover hit-zone — invisible pseudo ~12 px past the pill's
    edge on every side. Pseudo elements are treated as part of the
    parent for :hover hit-testing, so a cursor over the pad still
-   triggers the pill's :hover state and opens it. */
+   triggers the pill's :hover state and opens it. The swatches below
+   use position:relative so they paint ABOVE this pseudo — otherwise
+   (positioned pseudo + static flex children) the pseudo would stack
+   over the swatches and intercept their clicks. */
 .creative-expanded-bg-ctrl::before {
   content: '';
   position: absolute;
@@ -951,8 +954,14 @@
   /* No background — this is a hit-test pad only. */
 }
 
+/* Expand on hover OR when a descendant has KEYBOARD focus. Mouse
+   click lands focus on the clicked swatch but doesn't trigger
+   :focus-visible (modern heuristic distinguishes pointer vs keyboard
+   focus), so the old `:focus-within` kept the pill stuck open after
+   every click. :has(:focus-visible) only matches keyboard focus,
+   which is what we want for a11y without the click-sticks-open bug. */
 .creative-expanded-bg-ctrl:hover,
-.creative-expanded-bg-ctrl:focus-within {
+.creative-expanded-bg-ctrl:has(:focus-visible) {
   gap: 6px;
 }
 
@@ -967,6 +976,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* position:relative is intentional — it puts the swatches into the
+     same painted layer as ::before (both positioned, no z-index), so
+     the stacking order follows DOM order. ::before is the first
+     "child" conceptually, swatches come after, so swatches paint on
+     top. Without this, the positioned pseudo would stack above
+     static flex children and eat all the clicks. */
+  position: relative;
   transition:
     width 300ms ease,
     opacity 260ms ease,
@@ -992,8 +1008,10 @@
    0 → 6 px, the whole pill collapses to just the active circle
    when the viewer isn't hovering, and slides open to reveal all
    presets otherwise. pointer-events go away so the invisible
-   swatches can't steal clicks. */
-.creative-expanded-bg-ctrl:not(:hover):not(:focus-within)
+   swatches can't steal clicks. Matches the expansion selector
+   above — :has(:focus-visible) not :focus-within so a mouse click
+   doesn't keep the pill wedged open once the cursor leaves. */
+.creative-expanded-bg-ctrl:not(:hover):not(:has(:focus-visible))
   .creative-expanded-bg-swatch:not(.is-active) {
   width: 0;
   opacity: 0;

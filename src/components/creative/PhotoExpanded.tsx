@@ -62,6 +62,17 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
   // behavior — caption is out of the way during scroll-between,
   // then re-announces when the image is framed.
   const [captionVisible, setCaptionVisible] = useState(false);
+  // `displayedPhoto` is the photo the caption is currently SHOWING,
+  // which lags behind `activePhoto` on purpose. `activePhoto` flips
+  // mid-scroll (when the next image crosses the IntersectionObserver
+  // threshold) to keep the blur wall in sync with the scroll, but if
+  // we also flipped caption content at that moment the viewer would
+  // see the NEXT image's text briefly flash before fading out. So we
+  // hold the caption's content steady during fade-out and only swap
+  // it atomically with the fade-back-in on scroll-settle (same
+  // render frame → no flash).
+  const activePhotoInitial = photos.find((p) => p.id === startId) ?? photos[0];
+  const [displayedPhoto, setDisplayedPhoto] = useState<Photo | undefined>(activePhotoInitial);
 
   // Hydrate bg choice from localStorage on mount.
   useEffect(() => {
@@ -90,6 +101,12 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
     const id = window.requestAnimationFrame(() => setCaptionVisible(true));
     return () => window.cancelAnimationFrame(id);
   }, []);
+
+  // Ref mirroring the latest activePhoto so the scroll-settle handler
+  // (captured inside the scroll useEffect's closure below) can read
+  // the current value without the effect re-binding every time
+  // activeId changes. Updated every render.
+  const activePhotoRef = useRef<Photo | undefined>(activePhotoInitial);
 
   // Initial scroll + wrap-around scroll handler, combined in one
   // effect so the order is deterministic (set initial position
@@ -134,8 +151,14 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
       // `wrapping` flags an in-flight instant jump — during that jump
       // we don't want the caption to reshow yet (it'll settle again
       // once the real section lands) but otherwise scroll-settled =
-      // caption-visible.
-      if (!wrapping) setCaptionVisible(true);
+      // caption-visible. We also swap the displayed-photo content in
+      // the same tick so the content update and the opacity transition
+      // happen atomically (no flash of the new text fading out).
+      if (!wrapping) {
+        const latest = activePhotoRef.current;
+        if (latest) setDisplayedPhoto(latest);
+        setCaptionVisible(true);
+      }
       if (!armed || wrapping) return;
       const h = root.clientHeight;
       if (h === 0) return;
@@ -229,6 +252,10 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
 
   const activePhoto = photos.find((p) => p.id === activeId) ?? photos[0];
   const wallStyle = resolveWallStyle(bgMode, activePhoto);
+  // Keep the ref pointing at the latest active photo so the scroll-
+  // settle handler (captured in a long-lived closure) can read the
+  // current value when it swaps in the caption content.
+  activePhotoRef.current = activePhoto;
 
   // Bookend the list with cloned copies of the last and first photos
   // so the wrap-around scroll handler has somewhere to "arrive" at
@@ -330,23 +357,23 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
           scroll/scrollend handler. Text + glass colors adapt to the
           wall-color preset via [data-bg-mode] selectors in
           creative.css, so it stays readable on any chosen wall. */}
-      {activePhoto && (
+      {displayedPhoto && (
         <div
           className="creative-expanded-caption"
           data-visible={captionVisible ? 'true' : undefined}
           aria-live="polite"
         >
-          <span className="creative-expanded-caption-title">{activePhoto.title}</span>
+          <span className="creative-expanded-caption-title">{displayedPhoto.title}</span>
           <span className="creative-expanded-caption-meta">
-            <span>{activePhoto.aperture}</span>
+            <span>{displayedPhoto.aperture}</span>
             <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
-            <span>{activePhoto.shutter}</span>
+            <span>{displayedPhoto.shutter}</span>
             <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
-            <span>{activePhoto.iso}</span>
-            {activePhoto.year ? (
+            <span>{displayedPhoto.iso}</span>
+            {displayedPhoto.year ? (
               <>
                 <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
-                <span>{activePhoto.year}</span>
+                <span>{displayedPhoto.year}</span>
               </>
             ) : null}
           </span>
