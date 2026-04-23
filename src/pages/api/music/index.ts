@@ -1,86 +1,107 @@
 import type { APIRoute } from 'astro';
 import { isAuthenticated } from '@/lib/auth';
 import { listTracks, insertTrack, type TrackRow } from '@/lib/db';
-import { uploadToR2, buildR2Key } from '@/lib/r2';
-import { extractAudioMetadata } from '@/lib/audio';
-import { newId } from '@/lib/ids';
+import { r2PublicUrl } from '@/lib/r2';
 
 export const prerender = false;
 
 /**
  * GET  /api/music  — list (admin only)
- * POST /api/music  — multipart/form-data with audio (required), cover (optional) + fields
+ * POST /api/music  — JSON body describing a track whose audio (and
+ *                    optional cover) bytes have already been PUT to
+ *                    R2 via the presigned URL flow.
+ *
+ * Upload path:
+ *   1. client asks /api/music/presign for signed PUT URLs
+ *   2. client PUTs audio bytes (and optional cover) straight to R2
+ *   3. client POSTs to this endpoint with metadata + r2_keys
+ *
+ * Audio duration and recorded_date are extracted entirely on the
+ * client (HTMLAudioElement.duration + File.lastModified), so the
+ * server never needs the audio bytes and the 4.5 MB Vercel body
+ * limit never applies.
  */
 export const GET: APIRoute = async ({ cookies }) => {
   if (!(await isAuthenticated(cookies))) return err('Unauthorized', 401);
   try {
     const rows = await listTracks();
-    return ok({ tracks: rows });
+    // Enrich with public URLs (handy for admin previews + future
+    // backfills). Derived from r2_key + R2_PUBLIC_URL server-side so
+    // the env var never reaches the client.
+    const enriched = rows.map((r) => ({
+      ...r,
+      audio_public_url: r2PublicUrl(r.audio_r2_key),
+      cover_public_url: r.cover_r2_key ? r2PublicUrl(r.cover_r2_key) : null,
+    }));
+    return ok({ tracks: enriched });
   } catch (e) {
     return err(describe(e), 500);
   }
 };
 
+interface CreateTrackBody {
+  id?: string;
+  audio_r2_key?: string;
+  audio_filename?: string;
+  cover_r2_key?: string | null;
+  cover_filename?: string | null;
+  title?: string;
+  composer?: string | null;
+  duration_seconds?: number | string | null;
+  recorded_date?: string | null;
+  status?: 'draft' | 'live';
+  sort_order?: number | string;
+}
+
 export const POST: APIRoute = async ({ request, cookies }) => {
   if (!(await isAuthenticated(cookies))) return err('Unauthorized', 401);
 
-  let form: FormData;
+  let body: CreateTrackBody;
   try {
-    form = await request.formData();
+    body = (await request.json()) as CreateTrackBody;
   } catch {
-    return err('Expected multipart/form-data', 400);
+    return err('Expected JSON body', 400);
   }
 
-  const audio = form.get('audio');
-  if (!(audio instanceof File)) return err('Missing audio field', 400);
-  const cover = form.get('cover');
-  const coverFile = cover instanceof File && cover.size > 0 ? cover : null;
-
-  const title = (form.get('title') as string | null) ?? audio.name;
-  const composer = (form.get('composer') as string | null) ?? null;
-  const type = (form.get('type') as string | null) ?? null;
-  const recordedDate = (form.get('recorded_date') as string | null) ?? null;
-  const notes = (form.get('notes') as string | null) ?? null;
-  const status = ((form.get('status') as string | null) ?? 'draft') as 'draft' | 'live';
-  const sortOrder = Number((form.get('sort_order') as string | null) ?? 0);
-
-  const audioBuf = Buffer.from(await audio.arrayBuffer());
-  const meta = await extractAudioMetadata(audioBuf, audio.type);
-
-  const id = newId('t');
-  const audioKey = buildR2Key('music', id, audio.name);
-
-  try {
-    await uploadToR2(audioKey, audioBuf, audio.type || 'audio/mpeg');
-  } catch (e) {
-    return err(`R2 audio upload failed: ${describe(e)}`, 500);
+  const id = (body.id ?? '').trim();
+  const audioKey = (body.audio_r2_key ?? '').trim();
+  const audioFilename = (body.audio_filename ?? '').trim();
+  if (!id || !audioKey || !audioFilename) {
+    return err('Missing id / audio_r2_key / audio_filename', 400);
   }
 
-  let coverKey: string | null = null;
-  if (coverFile) {
-    const coverBuf = Buffer.from(await coverFile.arrayBuffer());
-    coverKey = buildR2Key('covers', id, coverFile.name);
-    try {
-      await uploadToR2(coverKey, coverBuf, coverFile.type || 'image/jpeg');
-    } catch (e) {
-      return err(`R2 cover upload failed: ${describe(e)}`, 500);
-    }
-  }
+  const coverKey = (body.cover_r2_key ?? '')?.trim() || null;
+  const coverFilename = (body.cover_filename ?? '')?.trim() || null;
+
+  const title = (body.title ?? '').trim() || audioFilename;
+  const composer = (body.composer ?? '')?.trim() || null;
+  const status: 'draft' | 'live' = body.status === 'live' ? 'live' : 'draft';
+  const rawSort = Number(body.sort_order ?? 0);
+  const sortOrder = Number.isFinite(rawSort) ? rawSort : 0;
+
+  const rawDuration = Number(body.duration_seconds ?? 0);
+  const durationSeconds = Number.isFinite(rawDuration) && rawDuration > 0
+    ? Math.round(rawDuration)
+    : null;
+
+  const recordedDate = (body.recorded_date ?? null) || null;
 
   const row: TrackRow = {
     id,
     title,
     composer,
-    audio_filename: audio.name,
+    audio_filename: audioFilename,
     audio_r2_key: audioKey,
-    cover_filename: coverFile?.name ?? null,
+    cover_filename: coverFilename,
     cover_r2_key: coverKey,
-    duration_seconds: meta.durationSeconds,
-    type,
+    duration_seconds: durationSeconds,
+    // `type` and `notes` were dropped from the upload flow — stored
+    // as null on new rows. Legacy rows keep whatever they had.
+    type: null,
     recorded_date: recordedDate,
-    notes,
+    notes: null,
     status,
-    sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
+    sort_order: sortOrder,
     created_at: new Date().toISOString(),
   };
 

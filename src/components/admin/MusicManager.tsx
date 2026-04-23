@@ -15,9 +15,34 @@ interface TrackRow {
   status: string;
   sort_order: number;
   created_at: string;
+  /** Added by the /api/music GET handler — not in the DB row. */
+  audio_public_url?: string;
+  cover_public_url?: string | null;
 }
 
 type Mode = 'list' | 'upload' | 'edit';
+
+/**
+ * Extract the audio file's duration in seconds via an HTMLAudioElement.
+ * Zero-dep — the browser's own media pipeline reads the container.
+ * Falls back to null for files the browser can't decode; the admin
+ * can fill the number in via the edit form.
+ */
+function extractAudioDuration(file: File): Promise<number | null> {
+  return new Promise((resolve) => {
+    const audio = document.createElement('audio');
+    audio.preload = 'metadata';
+    const url = URL.createObjectURL(file);
+    const cleanup = () => URL.revokeObjectURL(url);
+    audio.onloadedmetadata = () => {
+      const d = audio.duration;
+      cleanup();
+      resolve(Number.isFinite(d) && d > 0 ? Math.round(d) : null);
+    };
+    audio.onerror = () => { cleanup(); resolve(null); };
+    audio.src = url;
+  });
+}
 
 export default function MusicManager() {
   const [tracks, setTracks] = useState<TrackRow[]>([]);
@@ -106,12 +131,12 @@ export default function MusicManager() {
           {tracks.map((t) => (
             <li key={t.id} className="admin-list-item">
               <div className="admin-list-thumb" aria-hidden="true" style={{ borderRadius: '50%' }}>
-                {t.cover_r2_key ? '♪' : '♪'}
+                ♪
               </div>
               <div>
                 <p className="admin-list-title">{t.title}</p>
                 <p className="admin-list-meta">
-                  {[t.composer, formatDuration(t.duration_seconds), t.type].filter(Boolean).join(' · ') || '—'}
+                  {[t.composer, formatDuration(t.duration_seconds)].filter(Boolean).join(' · ') || '—'}
                 </p>
               </div>
               <span className={'admin-badge ' + (t.status === 'live' ? 'admin-badge-live' : 'admin-badge-draft')}>
@@ -158,11 +183,27 @@ function TrackUploadForm({ onCancel, onSaved }: UploadProps) {
   const [cover, setCover] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [composer, setComposer] = useState('');
-  const [type, setType] = useState<'solo' | 'ensemble' | 'cover'>('solo');
-  const [recordedDate, setRecordedDate] = useState('');
-  const [notes, setNotes] = useState('');
+  const [duration, setDuration] = useState<number | null>(null);
+  const [recordedDate, setRecordedDate] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+
+  // When the admin picks an audio file, extract the duration via the
+  // browser's media pipeline and derive the recorded_date from the
+  // file's lastModified timestamp — this is what operating systems
+  // expose through the File API and is the closest browser-accessible
+  // proxy for "when the file was created" short of parsing ID3 tags
+  // (which would require bundling music-metadata here).
+  const handleAudioPick = async (picked: File | null) => {
+    setAudio(picked);
+    setDuration(null);
+    setRecordedDate(null);
+    if (!picked) return;
+    setRecordedDate(new Date(picked.lastModified).toISOString());
+    const d = await extractAudioDuration(picked);
+    setDuration(d);
+  };
 
   const submit = async (saveStatus: 'draft' | 'live') => {
     if (!audio) {
@@ -171,24 +212,88 @@ function TrackUploadForm({ onCancel, onSaved }: UploadProps) {
     }
     setBusy(true);
     setError(null);
+    setProgress('');
     try {
-      const fd = new FormData();
-      fd.append('audio', audio);
-      if (cover) fd.append('cover', cover);
-      fd.append('title', title || audio.name);
-      fd.append('composer', composer);
-      fd.append('type', type);
-      fd.append('recorded_date', recordedDate);
-      fd.append('notes', notes);
-      fd.append('status', saveStatus);
-      const r = await fetch('/api/music', { method: 'POST', body: fd });
-      const data = (await r.json().catch(() => ({}))) as { error?: string };
-      if (!r.ok) throw new Error(data.error ?? `Upload failed (${r.status})`);
+      // 1. Ask the server for presigned PUT URLs. One for the audio
+      //    track (required), one for optional cover art. Short-lived
+      //    and MIME-bound so a stolen URL can't upload arbitrary data.
+      setProgress('Preparing upload…');
+      const audioContentType = audio.type || 'audio/mpeg';
+      const coverContentType = cover?.type || 'image/jpeg';
+      const presignR = await fetch('/api/music/presign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audio_filename: audio.name,
+          audio_content_type: audioContentType,
+          cover_filename: cover?.name,
+          cover_content_type: cover ? coverContentType : undefined,
+        }),
+      });
+      const presignData = (await presignR.json().catch(() => ({}))) as {
+        id?: string;
+        audio_r2_key?: string;
+        audio_upload_url?: string;
+        cover_r2_key?: string;
+        cover_upload_url?: string;
+        error?: string;
+      };
+      if (!presignR.ok || !presignData.id || !presignData.audio_r2_key || !presignData.audio_upload_url) {
+        throw new Error(presignData.error ?? `Presign failed (${presignR.status})`);
+      }
+
+      // 2. Upload the audio bytes directly to R2. Vercel never sees
+      //    the bytes, so the 4.5 MB function-body limit is out of the
+      //    loop — R2's per-object ceiling is 5 TB.
+      setProgress('Uploading audio…');
+      const audioPutR = await fetch(presignData.audio_upload_url, {
+        method: 'PUT',
+        headers: { 'Content-Type': audioContentType },
+        body: audio,
+      });
+      if (!audioPutR.ok) {
+        throw new Error(`Audio upload to storage failed (${audioPutR.status})`);
+      }
+
+      // 3. Upload the cover (if any). Same pattern, separate signed URL.
+      if (cover && presignData.cover_upload_url) {
+        setProgress('Uploading cover…');
+        const coverPutR = await fetch(presignData.cover_upload_url, {
+          method: 'PUT',
+          headers: { 'Content-Type': coverContentType },
+          body: cover,
+        });
+        if (!coverPutR.ok) {
+          throw new Error(`Cover upload to storage failed (${coverPutR.status})`);
+        }
+      }
+
+      // 4. Write the DB row.
+      setProgress('Saving details…');
+      const metaR = await fetch('/api/music', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: presignData.id,
+          audio_r2_key: presignData.audio_r2_key,
+          audio_filename: audio.name,
+          cover_r2_key: presignData.cover_r2_key ?? null,
+          cover_filename: cover?.name ?? null,
+          title: title || audio.name,
+          composer,
+          duration_seconds: duration,
+          recorded_date: recordedDate,
+          status: saveStatus,
+        }),
+      });
+      const metaData = (await metaR.json().catch(() => ({}))) as { error?: string };
+      if (!metaR.ok) throw new Error(metaData.error ?? `Save failed (${metaR.status})`);
       onSaved();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upload failed');
     } finally {
       setBusy(false);
+      setProgress('');
     }
   };
 
@@ -206,11 +311,11 @@ function TrackUploadForm({ onCancel, onSaved }: UploadProps) {
           className="admin-input"
           type="file"
           accept="audio/mpeg,audio/mp3,audio/wav,audio/flac,audio/ogg,audio/*"
-          onChange={(e) => setAudio(e.target.files?.[0] ?? null)}
+          onChange={(e) => handleAudioPick(e.target.files?.[0] ?? null)}
           required
         />
         <p style={{ fontSize: '0.75rem', color: 'rgba(232,236,244,0.45)', margin: '6px 0 0' }}>
-          MP3 / WAV / FLAC. Duration will be auto-detected on upload.
+          MP3 / WAV / FLAC / OGG. Duration and recorded date are read the moment you pick the file — bytes upload straight to R2, no size limit.
         </p>
       </div>
 
@@ -230,33 +335,18 @@ function TrackUploadForm({ onCancel, onSaved }: UploadProps) {
           <span>Title</span>
           <input className="admin-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Syrinx" />
         </label>
-        <div className="admin-row">
-          <label className="admin-label">
-            <span>Composer</span>
-            <input className="admin-input" value={composer} onChange={(e) => setComposer(e.target.value)} placeholder="Debussy" />
-          </label>
-          <label className="admin-label">
-            <span>Type</span>
-            <select className="admin-select" value={type} onChange={(e) => setType(e.target.value as 'solo' | 'ensemble' | 'cover')}>
-              <option value="solo">Solo</option>
-              <option value="ensemble">Ensemble</option>
-              <option value="cover">Cover</option>
-            </select>
-          </label>
-        </div>
-        <div className="admin-row">
-          <label className="admin-label">
-            <span>Recorded date</span>
-            <input className="admin-input" type="date" value={recordedDate} onChange={(e) => setRecordedDate(e.target.value)} />
-          </label>
-          <label className="admin-label">
-            <span>Notes</span>
-            <input className="admin-input" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional program note" />
-          </label>
-        </div>
+        <label className="admin-label">
+          <span>Composer <span style={{ color: 'rgba(232,236,244,0.45)', fontSize: '0.72rem' }}>(optional)</span></span>
+          <input className="admin-input" value={composer} onChange={(e) => setComposer(e.target.value)} placeholder="Debussy" />
+        </label>
       </div>
 
       {error ? <div className="admin-error">{error}</div> : null}
+      {busy && progress ? (
+        <div style={{ fontSize: '0.8rem', color: 'rgba(232,236,244,0.65)', fontStyle: 'italic' }}>
+          {progress}
+        </div>
+      ) : null}
 
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <button type="button" className="admin-btn" onClick={onCancel} disabled={busy}>Cancel</button>
@@ -272,7 +362,7 @@ function TrackUploadForm({ onCancel, onSaved }: UploadProps) {
 }
 
 // ------------------------------------------------------------
-// Edit form
+// Edit form — metadata only, no re-upload (delete + re-add for that)
 // ------------------------------------------------------------
 interface EditProps {
   track: TrackRow;
@@ -291,12 +381,12 @@ function TrackEditForm({ track, onCancel, onSaved }: EditProps) {
     setBusy(true);
     setError(null);
     try {
+      // Only send editable fields. type / notes aren't in the UI
+      // anymore, but we preserve whatever the legacy row carried so
+      // edits on old tracks don't null them out unintentionally.
       const patch = {
         title: form.title,
         composer: form.composer,
-        type: form.type,
-        recorded_date: form.recorded_date,
-        notes: form.notes,
         status: form.status,
         sort_order: form.sort_order,
         duration_seconds: form.duration_seconds,
@@ -324,33 +414,13 @@ function TrackEditForm({ track, onCancel, onSaved }: EditProps) {
           <span>Title</span>
           <input className="admin-input" value={form.title} onChange={(e) => onChange('title', e.target.value)} />
         </label>
-        <div className="admin-row">
-          <label className="admin-label">
-            <span>Composer</span>
-            <input className="admin-input" value={form.composer ?? ''} onChange={(e) => onChange('composer', e.target.value)} />
-          </label>
-          <label className="admin-label">
-            <span>Type</span>
-            <select className="admin-select" value={form.type ?? 'solo'} onChange={(e) => onChange('type', e.target.value)}>
-              <option value="solo">Solo</option>
-              <option value="ensemble">Ensemble</option>
-              <option value="cover">Cover</option>
-            </select>
-          </label>
-        </div>
-        <div className="admin-row">
-          <label className="admin-label">
-            <span>Recorded date</span>
-            <input className="admin-input" type="date" value={form.recorded_date ?? ''} onChange={(e) => onChange('recorded_date', e.target.value)} />
-          </label>
-          <label className="admin-label">
-            <span>Duration (seconds)</span>
-            <input className="admin-input" type="number" value={form.duration_seconds ?? 0} onChange={(e) => onChange('duration_seconds', Number(e.target.value))} />
-          </label>
-        </div>
         <label className="admin-label">
-          <span>Notes</span>
-          <textarea className="admin-textarea" rows={3} value={form.notes ?? ''} onChange={(e) => onChange('notes', e.target.value)} />
+          <span>Composer <span style={{ color: 'rgba(232,236,244,0.45)', fontSize: '0.72rem' }}>(optional)</span></span>
+          <input className="admin-input" value={form.composer ?? ''} onChange={(e) => onChange('composer', e.target.value)} />
+        </label>
+        <label className="admin-label">
+          <span>Duration (seconds)</span>
+          <input className="admin-input" type="number" value={form.duration_seconds ?? 0} onChange={(e) => onChange('duration_seconds', Number(e.target.value))} />
         </label>
       </div>
 
