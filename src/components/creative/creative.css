@@ -46,6 +46,71 @@
 }
 
 /* -------------------------------------------------------
+   Loading screen — branded overlay covering React's hydration
+   window. Rendered OUTSIDE .creative-app (sibling of it) so the
+   body's theme class (set pre-hydration by creative.astro) can
+   resolve the --creative-bg var without waiting for the React
+   tree to mount. Fast-hide: parent flips data-visible=undefined
+   on the next rAF after mount, triggering the 420 ms fade-out.
+   ------------------------------------------------------- */
+.creative-loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--creative-bg);
+  color: var(--creative-text);
+  font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 420ms ease-out;
+}
+
+.creative-loading-screen[data-visible='true'] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.creative-loading-screen-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  /* Cat + signature read with the same --cat-accent / --cat-eye
+     custom properties CatMark uses elsewhere — we map them onto
+     the active creative-palette tokens. */
+  --cat-accent: var(--creative-signature);
+  --cat-eye: var(--creative-text);
+}
+
+.creative-loading-screen-cat {
+  font-size: clamp(2.2rem, 4.5vw, 3.4rem);
+}
+
+.creative-loading-screen-signature {
+  font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: clamp(1.6rem, 2.8vw, 2.4rem);
+  color: var(--creative-signature);
+  letter-spacing: 0.01em;
+  line-height: 1;
+  animation: creative-loading-pulse 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes creative-loading-pulse {
+  0%   { opacity: 0.55; }
+  100% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .creative-loading-screen { transition: none; }
+  .creative-loading-screen-signature { animation: none; opacity: 1; }
+}
+
+/* -------------------------------------------------------
    Left floating glass buttons
 
    Two SEPARATE glass pills — back + theme toggle — sitting side by

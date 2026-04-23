@@ -1,10 +1,22 @@
 import { useEffect, useRef } from 'react';
-import BrainSvg from './BrainSvg';
+import NeuralBrain from './NeuralBrain';
 import CatMark from '@/components/shared/CatMark';
 import type { Takeover } from './HeroSection';
 
+type NavState = 'idle' | 'expanding-tech' | 'expanding-creative';
+
 interface Props {
+  /** Instant takeover state — drives the brain's active-hemisphere
+   *  color. Also triggers a burst of cross-hemisphere signal pulses
+   *  in the neural brain on change. */
+  takeover: Takeover;
+  /** Lagged takeover — drives the signature/description font + text
+   *  swap during the 200 ms fade-through. Separate from `takeover`
+   *  so the brain can react instantly while text waits its turn. */
   visualTakeover: Takeover;
+  /** Expanding into a side page → neural brain fires a click-burst
+   *  of particles from the active hemisphere. */
+  nav: NavState;
 }
 
 const DESCRIPTIONS: Record<Takeover, string> = {
@@ -67,7 +79,7 @@ function shuffle<T>(arr: T[]): T[] {
  * FANCY_FONTS set via inline font-family — the CSS default still
  * applies when the interval is cleared.
  */
-export default function CenterAnchor({ visualTakeover }: Props) {
+export default function CenterAnchor({ takeover, visualTakeover, nav }: Props) {
   const sigRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -101,7 +113,12 @@ export default function CenterAnchor({ visualTakeover }: Props) {
 
   return (
     <div className="hero-center">
-      <BrainSvg />
+      {/* Neural-web brain — Canvas 2D replacement for the old static
+          BrainSvg. Drives its own physics / firing / parallax /
+          click-burst internally; it just needs `takeover` (for active-
+          hemisphere coloring + signal flow on change) and `nav` (to
+          trigger the click-burst when expansion starts). */}
+      <NeuralBrain takeover={takeover} nav={nav} />
       <CatMark className="hero-cat" winkRadius={52} />
       <h1 ref={sigRef} className="hero-signature">Jackie</h1>
       <p className="hero-description">{DESCRIPTIONS[visualTakeover]}</p>

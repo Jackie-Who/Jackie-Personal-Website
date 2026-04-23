@@ -101,7 +101,11 @@ export default function HeroSection() {
 
       <CodeBackground typing={takeover === 'tech'} />
 
-      <CenterAnchor visualTakeover={visualTakeover} />
+      <CenterAnchor
+        takeover={takeover}
+        visualTakeover={visualTakeover}
+        nav={nav}
+      />
 
       <HitZones
         onEnterZone={handleEnter}

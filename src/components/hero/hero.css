@@ -554,46 +554,18 @@
   text-align: center;
 }
 
-.hero-brain {
-  width: 88px;
-  height: 100px;
+/* Neural-web brain canvas — replaces the old BrainSvg. Colors /
+   active-hemisphere highlighting / firing / parallax all happen
+   inside the canvas, so there are no per-hemisphere CSS rules
+   here anymore. This block is just the positioning + size. */
+.hero-neural-brain {
+  width: 180px;
+  height: 180px;
   margin-bottom: 18px;
-}
-
-.hero-brain-right,
-.hero-brain-left {
-  fill: #bbb;
-  opacity: 0.22;
-  transition: fill 500ms ease, opacity 500ms ease;
-}
-
-.hero-brain-midline {
-  stroke: #cccccc;
-  stroke-width: 0.4;
-  stroke-dasharray: 2 2;
-}
-
-.hero-brain-fold {
-  fill: none;
-  stroke: #aaaaaa;
-  stroke-width: 0.3;
-  opacity: 0.35;
-}
-
-.hero-app[data-takeover='creative'] .hero-brain-right {
-  fill: #c77dba;
-  opacity: 0.72;
-}
-.hero-app[data-takeover='creative'] .hero-brain-left {
-  opacity: 0.08;
-}
-
-.hero-app[data-takeover='tech'] .hero-brain-left {
-  fill: #5a9fd4;
-  opacity: 0.72;
-}
-.hero-app[data-takeover='tech'] .hero-brain-right {
-  opacity: 0.08;
+  /* Canvas takes its layout size from width/height above; the
+     internal bitmap is resized to devicePixelRatio in the
+     component's resize handler so strokes stay crisp on HiDPI. */
+  display: block;
 }
 
 /* Cat mark in hero — inherits takeover-aware palette via --cat-* vars */
@@ -801,8 +773,6 @@
   .hero-creative-img,
   .hero-creative-vid,
   .hero-code,
-  .hero-brain-right,
-  .hero-brain-left,
   .hero-signature,
   .hero-signature-logo,
   .hero-description,
@@ -810,6 +780,8 @@
   .hero-panel-sub {
     transition-duration: 0.01ms !important;
   }
+  /* Neural brain respects prefers-reduced-motion internally
+     (rAF loop is skipped; only a single static draw). */
 
   .hero-creative-vid-scanline,
   .hero-creative-vid-bar,
@@ -831,9 +803,9 @@
   .hero-center {
     padding: 0 8px;
   }
-  .hero-brain {
-    width: 64px;
-    height: 72px;
+  .hero-neural-brain {
+    width: 130px;
+    height: 130px;
     margin-bottom: 12px;
   }
   .hero-signature {
