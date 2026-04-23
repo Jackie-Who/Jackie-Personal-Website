@@ -611,11 +611,12 @@
   display: block;
   flex: 0 0 auto;
   /* Shared fixed height → width resolves from aspect-ratio set
-     inline. Sized to land around ~75 % of the old column-masonry
-     tile dimensions — smaller than pre-justified-rows, but not as
-     sparse as the first pass at this layout. Mobile override in
-     the responsive block at the bottom of this file. */
-  height: clamp(200px, 16vw, 240px);
+     inline. Heights sized to land around 70–80 % of the HEIGHTS
+     the old column-masonry produced (masonry columns were
+     ~460 px wide, so landscape tiles landed ~300 px tall and
+     portraits ~690 px — we're taking ~75 % of a weighted average).
+     Mobile override below. */
+  height: clamp(340px, 28vw, 420px);
   margin: 0;
   padding: 0;
   border: 0;
@@ -1080,10 +1081,12 @@
    Responsive
    ------------------------------------------------------- */
 @media (max-width: 720px) {
-  /* Smaller tile height on mobile so 2 landscape tiles fit per row
-     comfortably; portraits fit 3-4. Still flex-row + wrap. */
+  /* Taller on mobile too (proportional to the desktop bump). A
+     landscape tile at ~240 px tall lands 360 wide on 3:2, which
+     overflows small phones — the flex-wrap handles that by giving
+     each wide tile its own row. Portraits still fit 2 per row. */
   .creative-photo-tile {
-    height: clamp(140px, 30vw, 190px);
+    height: clamp(200px, 44vw, 280px);
   }
   .creative-music {
     border-right: 0;
