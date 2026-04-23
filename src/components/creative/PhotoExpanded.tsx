@@ -360,13 +360,31 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
 }
 
 
-function resolveWallStyle(mode: BgMode, _photo: Photo | undefined): React.CSSProperties {
-  // Blur mode draws a per-section backdrop (see the
-  // .creative-expanded-section-blur div inside each figure), so the
-  // frame itself only needs a neutral fill behind any padding the
-  // per-section blur doesn't cover. That fill comes from the
-  // --creative-bg var via a CSS rule keyed on data-bg-mode='blur'.
-  if (mode === 'blur') return {};
+function resolveWallStyle(mode: BgMode, photo: Photo | undefined): React.CSSProperties {
+  if (mode === 'blur') {
+    // Blur mode renders TWO stacked layers, both driven by the
+    // currently-active photo's pre-baked blur:
+    //   1. Frame-level ::before (cover-sized, heavy blur) — fills the
+    //      full frame so there are no transparent edges at the
+    //      corners / wide viewports where the per-section halo blur
+    //      doesn't reach. Reads as a color-mood wash.
+    //   2. Per-section halo (image-footprint-sized, moderate blur) —
+    //      the existing layer inside each section, gives the "image
+    //      extending outward" sensation near the image.
+    // Both consume the same blurDataUrl so colors stay coherent.
+    // --creative-wall-image cascades down from here into the frame
+    // ::before (same element, direct read). The per-section div uses
+    // its own --wall-image set inline per-section.
+    if (!photo) return {};
+    const wall = photo.blurDataUrl
+      ? `url("${photo.blurDataUrl}")`
+      : photo.url
+        ? `url("${photo.url}")`
+        : photo.placeholder;
+    return {
+      ['--creative-wall-image' as unknown as string]: wall,
+    } as React.CSSProperties;
+  }
   const preset = BG_PRESETS.find((p) => p.id === mode);
   if (!preset) return {};
   return { background: preset.swatch };

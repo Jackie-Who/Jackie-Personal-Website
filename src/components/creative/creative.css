@@ -846,24 +846,48 @@
   scrollbar-color: rgba(var(--creative-accent-rgb), 0.28) transparent;
 }
 
-/* Blur mode frame bg — the per-section blur wall (see below) paints
-   inside the image's footprint and bleeds outward via CSS blur, but
-   there's always some section-padding area (corners, gaps) that the
-   blur bleed doesn't cover. That shows through to this fill. Using
-   the theme's base bg keeps that neutral region unobtrusive. */
+/* Blur mode frame bg — fallback color in case the ::before below
+   never paints (e.g. photos with no blurDataUrl AND no url). Under
+   normal operation the ::before covers this entirely. */
 .creative-expanded-frame[data-bg-mode='blur'] {
   background: var(--creative-bg);
 }
 
-/* Per-section blur wall — one per photo, positioned absolutely at
-   the figure's center and sized with the SAME aspect-ratio +
-   max-width + max-height constraints as the actual image. That
-   means the blur occupies the exact footprint of the image it's
-   behind, and the heavy CSS blur radius then bleeds the photo's
-   edge colors outward into the surrounding padding. Result: the
-   image reads as "extending" into the wall rather than sitting on
-   top of a separate cover-sized blur that's disconnected from the
-   photo's framing. */
+/* Back layer — COVER-SIZED blur of the currently active photo,
+   filling the entire frame. This is what prevents the "transparent
+   edge" artifact that used to show whenever the per-section halo's
+   70-px bleed didn't reach all the way to the frame corners. Much
+   heavier blur (110 px) and darker brightness than the front layer
+   so it reads as a color-mood WASH, not a recognizable copy of the
+   image — the per-section halo above is the prominent visual
+   feature, this just fills the vignette area around it.
+   Inset -60 px lets the big blur feather past frame edges rather
+   than showing a hard vignette line at the clip boundary. */
+.creative-expanded-frame[data-bg-mode='blur']::before {
+  content: '';
+  position: absolute;
+  inset: -60px;
+  z-index: 0;
+  background: var(--creative-wall-image, var(--creative-bg)) center / cover no-repeat;
+  filter: blur(110px) saturate(120%) brightness(0.55);
+  pointer-events: none;
+  transition: filter 240ms ease;
+}
+
+/* Light-mode twin for the back layer — far less darkening so the
+   cover blur fits the cream canvas instead of crushing it. */
+.creative-app[data-theme='light'] .creative-expanded-frame[data-bg-mode='blur']::before {
+  filter: blur(110px) saturate(115%) brightness(0.98);
+}
+
+/* Front layer — per-section halo, sized to match the image's
+   displayed footprint via the same aspect-ratio + max-dim constraints
+   as the <img>. The CSS blur here (60 px, down from 70 to
+   distinguish it from the back layer's wash) bleeds the photo's own
+   edge colors outward from the image position — that's the "image
+   extending outward into the background" sensation. Sits above the
+   back cover layer via z-index so the halo dominates visually near
+   the image, with the cover layer filling the rest of the frame. */
 .creative-expanded-section-blur {
   position: absolute;
   top: 50%;
@@ -878,15 +902,13 @@
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  filter: blur(70px) saturate(135%) brightness(0.72);
+  filter: blur(60px) saturate(140%) brightness(0.82);
   pointer-events: none;
   z-index: 0;
 }
 
-/* Light-mode twin — lift brightness so photo colors don't crush
-   against the cream canvas the rest of the page uses. */
 .creative-app[data-theme='light'] .creative-expanded-section-blur {
-  filter: blur(70px) saturate(125%) brightness(1.08);
+  filter: blur(60px) saturate(130%) brightness(1.1);
 }
 
 /* ---- Wall-color control (pill row, anchored bottom-RIGHT) ----
