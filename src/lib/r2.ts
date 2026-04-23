@@ -105,11 +105,15 @@ export async function presignUploadUrl(
   expiresSec = 600,
 ): Promise<{ url: string; key: string; publicUrl: string }> {
   const { client: c, bucket, publicUrl } = getClient();
+  // NOTE: every field we set on PutObjectCommand becomes a SIGNED
+  // header the browser MUST replay on the PUT. We only want the
+  // client to send Content-Type, so ContentType is the only
+  // command-level field here. Cache headers are applied at the R2
+  // bucket / CF edge layer instead, not on a per-upload basis.
   const cmd = new PutObjectCommand({
     Bucket: bucket,
     Key: key,
     ContentType: contentType,
-    CacheControl: 'public, max-age=31536000, immutable',
   });
   const url = await getSignedUrl(c, cmd, { expiresIn: expiresSec });
   const normalized = publicUrl.replace(/\/$/, '');
