@@ -110,7 +110,7 @@ export default function PhotoManager() {
               <div>
                 <p className="admin-list-title">{p.title}</p>
                 <p className="admin-list-meta">
-                  {[p.focal_length, p.aperture, p.shutter_speed, p.iso].filter(Boolean).join(' · ') || '— no EXIF —'}
+                  {[p.aperture, p.shutter_speed, p.iso].filter(Boolean).join(' · ') || '— no EXIF —'}
                 </p>
               </div>
               <span className={'admin-badge ' + (p.status === 'live' ? 'admin-badge-live' : 'admin-badge-draft')}>
@@ -149,13 +149,9 @@ function PhotoUploadForm({ onCancel, onSaved }: UploadProps) {
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [layout, setLayout] = useState<'standard' | 'wide'>('standard');
-  const [category, setCategory] = useState('');
-  const [focal, setFocal] = useState('');
   const [aperture, setAperture] = useState('');
   const [shutter, setShutter] = useState('');
   const [iso, setIso] = useState('');
-  const [camera, setCamera] = useState('');
-  const [lens, setLens] = useState('');
   const [status, setStatus] = useState<'draft' | 'live'>('draft');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -172,13 +168,9 @@ function PhotoUploadForm({ onCancel, onSaved }: UploadProps) {
       fd.append('file', file);
       fd.append('title', title || file.name);
       fd.append('layout', layout);
-      fd.append('category', category);
-      fd.append('focal', focal);
       fd.append('aperture', aperture);
       fd.append('shutter', shutter);
       fd.append('iso', iso);
-      fd.append('camera', camera);
-      fd.append('lens', lens);
       fd.append('status', saveStatus);
       const r = await fetch('/api/photos', { method: 'POST', body: fd });
       const data = (await r.json().catch(() => ({}))) as { error?: string };
@@ -215,21 +207,17 @@ function PhotoUploadForm({ onCancel, onSaved }: UploadProps) {
 
       <div className="admin-section">
         <h2>Details</h2>
-        <label className="admin-label">
-          <span>Title</span>
-          <input className="admin-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Light through vines" />
-        </label>
         <div className="admin-row">
+          <label className="admin-label">
+            <span>Title</span>
+            <input className="admin-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Light through vines" />
+          </label>
           <label className="admin-label">
             <span>Layout</span>
             <select className="admin-select" value={layout} onChange={(e) => setLayout(e.target.value as 'standard' | 'wide')}>
               <option value="standard">Standard (1 col)</option>
               <option value="wide">Wide (2 cols)</option>
             </select>
-          </label>
-          <label className="admin-label">
-            <span>Category</span>
-            <input className="admin-input" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Portrait / Music / …" />
           </label>
         </div>
       </div>
@@ -238,34 +226,18 @@ function PhotoUploadForm({ onCancel, onSaved }: UploadProps) {
         <h2>EXIF (auto-filled, editable)</h2>
         <div className="admin-row">
           <label className="admin-label">
-            <span>Focal length</span>
-            <input className="admin-input" value={focal} onChange={(e) => setFocal(e.target.value)} placeholder="35mm" />
-          </label>
-          <label className="admin-label">
             <span>Aperture</span>
             <input className="admin-input" value={aperture} onChange={(e) => setAperture(e.target.value)} placeholder="ƒ/1.8" />
           </label>
-        </div>
-        <div className="admin-row">
           <label className="admin-label">
             <span>Shutter</span>
             <input className="admin-input" value={shutter} onChange={(e) => setShutter(e.target.value)} placeholder="1/125s" />
           </label>
-          <label className="admin-label">
-            <span>ISO</span>
-            <input className="admin-input" value={iso} onChange={(e) => setIso(e.target.value)} placeholder="ISO 200" />
-          </label>
         </div>
-        <div className="admin-row">
-          <label className="admin-label">
-            <span>Camera</span>
-            <input className="admin-input" value={camera} onChange={(e) => setCamera(e.target.value)} placeholder="Sony A7 III" />
-          </label>
-          <label className="admin-label">
-            <span>Lens</span>
-            <input className="admin-input" value={lens} onChange={(e) => setLens(e.target.value)} placeholder="Sony 35mm ƒ/1.8" />
-          </label>
-        </div>
+        <label className="admin-label">
+          <span>ISO</span>
+          <input className="admin-input" value={iso} onChange={(e) => setIso(e.target.value)} placeholder="ISO 200" />
+        </label>
         <p style={{ fontSize: '0.72rem', color: 'rgba(232,236,244,0.4)', margin: '6px 0 0' }}>
           Blank fields will be populated from EXIF when the file is uploaded.
         </p>
@@ -309,13 +281,9 @@ function PhotoEditForm({ photo, onCancel, onSaved }: EditProps) {
       const patch = {
         title: form.title,
         layout: form.layout,
-        category: form.category,
-        focal_length: form.focal_length,
         aperture: form.aperture,
         shutter_speed: form.shutter_speed,
         iso: form.iso,
-        camera: form.camera,
-        lens: form.lens,
         status: form.status,
         sort_order: form.sort_order,
       };
@@ -338,11 +306,11 @@ function PhotoEditForm({ photo, onCancel, onSaved }: EditProps) {
     <form className="admin-form" onSubmit={(e) => { e.preventDefault(); submit(); }}>
       <div className="admin-section">
         <h2>Details</h2>
-        <label className="admin-label">
-          <span>Title</span>
-          <input className="admin-input" value={form.title} onChange={(e) => onChange('title', e.target.value)} />
-        </label>
         <div className="admin-row">
+          <label className="admin-label">
+            <span>Title</span>
+            <input className="admin-input" value={form.title} onChange={(e) => onChange('title', e.target.value)} />
+          </label>
           <label className="admin-label">
             <span>Layout</span>
             <select className="admin-select" value={form.layout} onChange={(e) => onChange('layout', e.target.value)}>
@@ -350,27 +318,16 @@ function PhotoEditForm({ photo, onCancel, onSaved }: EditProps) {
               <option value="wide">Wide</option>
             </select>
           </label>
-          <label className="admin-label">
-            <span>Category</span>
-            <input className="admin-input" value={form.category ?? ''} onChange={(e) => onChange('category', e.target.value)} />
-          </label>
         </div>
       </div>
 
       <div className="admin-section">
         <h2>EXIF</h2>
         <div className="admin-row">
-          <label className="admin-label"><span>Focal</span><input className="admin-input" value={form.focal_length ?? ''} onChange={(e) => onChange('focal_length', e.target.value)} /></label>
           <label className="admin-label"><span>Aperture</span><input className="admin-input" value={form.aperture ?? ''} onChange={(e) => onChange('aperture', e.target.value)} /></label>
-        </div>
-        <div className="admin-row">
           <label className="admin-label"><span>Shutter</span><input className="admin-input" value={form.shutter_speed ?? ''} onChange={(e) => onChange('shutter_speed', e.target.value)} /></label>
-          <label className="admin-label"><span>ISO</span><input className="admin-input" value={form.iso ?? ''} onChange={(e) => onChange('iso', e.target.value)} /></label>
         </div>
-        <div className="admin-row">
-          <label className="admin-label"><span>Camera</span><input className="admin-input" value={form.camera ?? ''} onChange={(e) => onChange('camera', e.target.value)} /></label>
-          <label className="admin-label"><span>Lens</span><input className="admin-input" value={form.lens ?? ''} onChange={(e) => onChange('lens', e.target.value)} /></label>
-        </div>
+        <label className="admin-label"><span>ISO</span><input className="admin-input" value={form.iso ?? ''} onChange={(e) => onChange('iso', e.target.value)} /></label>
       </div>
 
       <div className="admin-section">

@@ -155,11 +155,9 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
             <span className="creative-expanded-title">{p.title}</span>
           </div>
           <ul className="creative-expanded-exif" aria-label="Photo metadata">
-            <li>{p.focal}</li>
             <li>{p.aperture}</li>
             <li>{p.shutter}</li>
             <li>{p.iso}</li>
-            {p.category && <li className="creative-expanded-exif-category">{p.category}</li>}
           </ul>
         </section>
       ))}

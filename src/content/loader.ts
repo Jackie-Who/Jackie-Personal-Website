@@ -51,13 +51,9 @@ function rowToPhoto(r: PhotoRow): Photo {
     // tiles + expanded view show the real image.
     placeholder: `url(${r2PublicUrl(r.r2_key)}) center/cover no-repeat, linear-gradient(160deg,#1e1428,#0e0a12)`,
     layout: (r.layout === 'wide' ? 'wide' : 'standard') as Photo['layout'],
-    focal: r.focal_length ?? '—',
     aperture: r.aperture ?? '—',
     shutter: r.shutter_speed ?? '—',
     iso: r.iso ?? '—',
-    camera: r.camera ?? undefined,
-    lens: r.lens ?? undefined,
-    category: r.category ?? undefined,
     year,
   };
 }

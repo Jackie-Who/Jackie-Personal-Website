@@ -36,20 +36,19 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
   const title = (form.get('title') as string | null) ?? file.name;
   const layout = ((form.get('layout') as string | null) ?? 'standard') as 'standard' | 'wide';
-  const category = (form.get('category') as string | null) ?? null;
   const status = ((form.get('status') as string | null) ?? 'draft') as 'draft' | 'live';
   const sortOrder = Number((form.get('sort_order') as string | null) ?? 0);
 
   const buf = Buffer.from(await file.arrayBuffer());
   const exif = await extractExif(buf);
 
-  // Respect explicit overrides from the admin form, else use EXIF.
-  const focal = (form.get('focal') as string | null) ?? exif.focal;
+  // Form overrides win over EXIF for the three kept fields. The
+  // dropped columns (focal_length, camera, lens, category) stay in
+  // the schema for back-compat with any pre-existing rows, but are
+  // always written as NULL for new uploads.
   const aperture = (form.get('aperture') as string | null) ?? exif.aperture;
   const shutter = (form.get('shutter') as string | null) ?? exif.shutter;
   const iso = (form.get('iso') as string | null) ?? exif.iso;
-  const camera = (form.get('camera') as string | null) ?? exif.camera;
-  const lens = (form.get('lens') as string | null) ?? exif.lens;
 
   const id = newId('p');
   const key = buildR2Key('photos', id, file.name);
@@ -70,13 +69,13 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     title,
     filename: file.name,
     r2_key: key,
-    focal_length: focal,
+    focal_length: null,
     aperture,
     shutter_speed: shutter,
     iso,
-    camera,
-    lens,
-    category,
+    camera: null,
+    lens: null,
+    category: null,
     layout,
     status,
     sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
