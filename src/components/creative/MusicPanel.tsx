@@ -186,7 +186,7 @@ export default function MusicPanel({ tracks, initialTrackId, size, onSizeChange 
 
       <div className="creative-music-footer">
         {expanded && (
-          <SpectrumBars playing={player.isPlaying} />
+          <SpectrumBars playing={player.isPlaying} analyser={player.analyser} />
         )}
 
         <div className="creative-music-now" aria-live="polite">
@@ -243,6 +243,19 @@ export default function MusicPanel({ tracks, initialTrackId, size, onSizeChange 
               </svg>
             </button>
           )}
+
+          {/* Volume pill — click toggles mute, hover reveals a popup
+              horizontal slider anchored above the button. Only in
+              expanded mode; compact mode hides it to preserve the
+              play-button-only minimal chrome. */}
+          {expanded && (
+            <VolumeControl
+              volume={player.volume}
+              muted={player.muted}
+              onVolumeChange={player.setVolume}
+              onToggleMute={player.toggleMute}
+            />
+          )}
           {/* Collapse/expand moved out to the header bar (see
               CreativeTopNav). The drag handle on the inner edge is
               still here for resize-by-drag. */}
@@ -262,5 +275,98 @@ export default function MusicPanel({ tracks, initialTrackId, size, onSizeChange 
 
       {player.audioElement}
     </aside>
+  );
+}
+
+// ------------------------------------------------------------
+// Volume control — inline sub-component
+// ------------------------------------------------------------
+interface VolumeControlProps {
+  volume: number;
+  muted: boolean;
+  onVolumeChange: (v: number) => void;
+  onToggleMute: () => void;
+}
+
+/**
+ * Mute button + hover-popup volume slider. The button behaves as a
+ * single toggle (click = mute/unmute). Hovering or keyboard-focusing
+ * the button reveals a short horizontal slider anchored above it;
+ * the slider stays visible while cursor/focus is on either the
+ * button or the slider itself. Default volume is 50 % on first visit
+ * (persisted to localStorage by useAudioPlayer on any change).
+ */
+function VolumeControl({ volume, muted, onVolumeChange, onToggleMute }: VolumeControlProps) {
+  // The slider's displayed value dips to 0 when muted so the thumb
+  // visibly snaps to the left while the button shows the mute icon.
+  const displayVolume = muted ? 0 : volume;
+  return (
+    <div className="creative-volume-wrap">
+      <button
+        type="button"
+        className="creative-music-btn"
+        onClick={onToggleMute}
+        aria-label={muted ? 'Unmute' : 'Mute'}
+        title={muted ? 'Unmute' : 'Mute'}
+      >
+        {muted || volume === 0 ? (
+          /* Muted — speaker body with an X crossed through */
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M3 6v4h2.5l3 2.5v-9l-3 2.5H3z" fill="currentColor" />
+            <path
+              d="M11 6l4 4M15 6l-4 4"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              strokeLinecap="round"
+              fill="none"
+            />
+          </svg>
+        ) : volume < 0.5 ? (
+          /* Low — speaker + one arc */
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M3 6v4h2.5l3 2.5v-9l-3 2.5H3z" fill="currentColor" />
+            <path
+              d="M11 6.2c.8.8.8 2.8 0 3.6"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              strokeLinecap="round"
+              fill="none"
+            />
+          </svg>
+        ) : (
+          /* Full — speaker + two arcs */
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M3 6v4h2.5l3 2.5v-9l-3 2.5H3z" fill="currentColor" />
+            <path
+              d="M11 6.2c.8.8.8 2.8 0 3.6"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              strokeLinecap="round"
+              fill="none"
+            />
+            <path
+              d="M13 4.6c1.6 1.6 1.6 5.2 0 6.8"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              strokeLinecap="round"
+              fill="none"
+            />
+          </svg>
+        )}
+      </button>
+      <div className="creative-volume-popup">
+        <div className="creative-volume-popup-inner">
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={displayVolume}
+            onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
+            aria-label="Volume"
+          />
+        </div>
+      </div>
+    </div>
   );
 }
