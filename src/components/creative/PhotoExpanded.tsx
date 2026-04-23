@@ -54,6 +54,14 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [bgMode, setBgMode] = useState<BgMode>(DEFAULT_BG);
   const [activeId, setActiveId] = useState<string | null>(startId);
+  // `captionVisible` drives the museum-label glass pill's opacity.
+  // Starts false so the initial mount can animate it in via rAF
+  // below (CSS transition doesn't play if initial == final state).
+  // Toggles false whenever scroll starts and true again on settle,
+  // producing the "fade in when the viewer arrives at an image"
+  // behavior — caption is out of the way during scroll-between,
+  // then re-announces when the image is framed.
+  const [captionVisible, setCaptionVisible] = useState(false);
 
   // Hydrate bg choice from localStorage on mount.
   useEffect(() => {
@@ -75,6 +83,13 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
       /* ignore */
     }
   }, [bgMode]);
+
+  // Fade the caption in on mount — one-shot, after the next paint
+  // so the CSS transition sees a 0 → 1 opacity change.
+  useEffect(() => {
+    const id = window.requestAnimationFrame(() => setCaptionVisible(true));
+    return () => window.cancelAnimationFrame(id);
+  }, []);
 
   // Initial scroll + wrap-around scroll handler, combined in one
   // effect so the order is deterministic (set initial position
@@ -114,6 +129,13 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
     // without scrollend — guarantees we only wrap once the snap
     // animation has completed.
     const onSettle = () => {
+      // Always re-announce the caption when the scroll comes to rest,
+      // even if the wrap-detection logic below decides to bail early.
+      // `wrapping` flags an in-flight instant jump — during that jump
+      // we don't want the caption to reshow yet (it'll settle again
+      // once the real section lands) but otherwise scroll-settled =
+      // caption-visible.
+      if (!wrapping) setCaptionVisible(true);
       if (!armed || wrapping) return;
       const h = root.clientHeight;
       if (h === 0) return;
@@ -138,6 +160,12 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
     };
 
     const onScroll = () => {
+      // Hide the caption as soon as the viewer starts scrolling;
+      // onSettle brings it back once the scroll comes to rest. The
+      // wrap jumps fire synthetic scroll events too but `wrapping`
+      // suppresses the hide in that case (it'd just flicker since
+      // the jump is instant).
+      if (!wrapping) setCaptionVisible(false);
       if (settleTimer !== null) window.clearTimeout(settleTimer);
       settleTimer = window.setTimeout(onSettle, 120);
     };
@@ -288,32 +316,42 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
                 </button>
               </div>
             </figure>
-
-            {/* Museum-style wall label — glass pill anchored bottom-
-                LEFT of the section (background, not overlaid on the
-                image). Text + glass colors adapt to the wall-color
-                preset via [data-bg-mode] selectors in creative.css,
-                so it stays readable on any chosen background. */}
-            <figcaption className="creative-expanded-caption">
-              <span className="creative-expanded-caption-title">{item.photo.title}</span>
-              <span className="creative-expanded-caption-meta">
-                <span>{item.photo.aperture}</span>
-                <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
-                <span>{item.photo.shutter}</span>
-                <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
-                <span>{item.photo.iso}</span>
-                {item.photo.year ? (
-                  <>
-                    <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
-                    <span>{item.photo.year}</span>
-                  </>
-                ) : null}
-              </span>
-            </figcaption>
           </section>
           );
         })}
       </div>
+
+      {/* Museum-style wall label — glass pill anchored bottom-LEFT
+          of the FRAME (not per-section, so it doesn't scroll with
+          the image sections). Content updates to match the active
+          photo as the viewer scrolls; visibility fades out during
+          scroll and fades back in once the scroll has settled on a
+          new image, via the `captionVisible` state driven by the
+          scroll/scrollend handler. Text + glass colors adapt to the
+          wall-color preset via [data-bg-mode] selectors in
+          creative.css, so it stays readable on any chosen wall. */}
+      {activePhoto && (
+        <div
+          className="creative-expanded-caption"
+          data-visible={captionVisible ? 'true' : undefined}
+          aria-live="polite"
+        >
+          <span className="creative-expanded-caption-title">{activePhoto.title}</span>
+          <span className="creative-expanded-caption-meta">
+            <span>{activePhoto.aperture}</span>
+            <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
+            <span>{activePhoto.shutter}</span>
+            <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
+            <span>{activePhoto.iso}</span>
+            {activePhoto.year ? (
+              <>
+                <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
+                <span>{activePhoto.year}</span>
+              </>
+            ) : null}
+          </span>
+        </div>
+      )}
 
       <div
         className="creative-expanded-bg-ctrl"
