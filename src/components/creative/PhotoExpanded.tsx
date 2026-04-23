@@ -98,44 +98,64 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
     // Wrap-around only meaningful with more than one photo.
     if (photos.length <= 1) return;
 
-    let rafId: number | null = null;
     let wrapping = false;
     // A short grace window after mount so the initial scrollTo doesn't
     // immediately trip the wrap detector.
     let armed = false;
-    const armTimer = window.setTimeout(() => { armed = true; }, 120);
+    const armTimer = window.setTimeout(() => { armed = true; }, 200);
+    let settleTimer: number | null = null;
 
-    const handleScroll = () => {
-      if (!armed || wrapping || rafId !== null) return;
-      rafId = window.requestAnimationFrame(() => {
-        rafId = null;
-        const h = root.clientHeight;
-        if (h === 0) return;
-        // Mandatory scroll-snap locks scrollTop to integer multiples
-        // of h once the user lets go, so a simple round() picks the
-        // current section's index without ambiguity.
-        const index = Math.round(root.scrollTop / h);
-        if (index === 0) {
-          // Landed on clone-last (before the real first). Jump to
-          // the real last (position photos.length in the bookended
-          // list). Visually identical bytes → no seam.
-          wrapping = true;
-          root.scrollTo({ top: photos.length * h, behavior: 'auto' });
-          window.setTimeout(() => { wrapping = false; }, 80);
-        } else if (index === photos.length + 1) {
-          // Landed on clone-first (after the real last). Jump to
-          // the real first at position 1.
-          wrapping = true;
-          root.scrollTo({ top: h, behavior: 'auto' });
-          window.setTimeout(() => { wrapping = false; }, 80);
-        }
-      });
+    // Only fire a wrap after the scroll has SETTLED at a snap point.
+    // Firing mid-scroll (e.g. at scrollTop = 0.4 * h while the viewer
+    // is on their way from clone-last to real-first) produces a
+    // mid-gesture teleport that visibly shows both images at once.
+    // Strict alignment (within 2 px of an integer multiple of h)
+    // plus scrollend — or a 120 ms debounce fallback for browsers
+    // without scrollend — guarantees we only wrap once the snap
+    // animation has completed.
+    const onSettle = () => {
+      if (!armed || wrapping) return;
+      const h = root.clientHeight;
+      if (h === 0) return;
+      const scrollTop = root.scrollTop;
+      const index = Math.round(scrollTop / h);
+      if (Math.abs(scrollTop - index * h) > 2) return;
+
+      if (index === 0) {
+        // Settled on clone-last (before the real first). Jump to
+        // the real last (position photos.length). Identical bytes
+        // to the clone → user sees no seam.
+        wrapping = true;
+        root.scrollTo({ top: photos.length * h, behavior: 'auto' });
+        window.setTimeout(() => { wrapping = false; }, 80);
+      } else if (index === photos.length + 1) {
+        // Settled on clone-first (after the real last). Jump to
+        // the real first at position 1.
+        wrapping = true;
+        root.scrollTo({ top: h, behavior: 'auto' });
+        window.setTimeout(() => { wrapping = false; }, 80);
+      }
     };
-    root.addEventListener('scroll', handleScroll, { passive: true });
+
+    const onScroll = () => {
+      if (settleTimer !== null) window.clearTimeout(settleTimer);
+      settleTimer = window.setTimeout(onSettle, 120);
+    };
+    root.addEventListener('scroll', onScroll, { passive: true });
+    // Where supported (Chrome 114+, Safari 17.1+, FF 109+), the
+    // browser fires a dedicated scrollend once snap settles — more
+    // responsive than the debounce fallback. Both can fire in the
+    // same session; onSettle is idempotent against duplicate calls.
+    const hasScrollend = 'onscrollend' in root;
+    if (hasScrollend) {
+      root.addEventListener('scrollend', onSettle, { passive: true });
+    }
+
     return () => {
       window.clearTimeout(armTimer);
-      root.removeEventListener('scroll', handleScroll);
-      if (rafId !== null) window.cancelAnimationFrame(rafId);
+      if (settleTimer !== null) window.clearTimeout(settleTimer);
+      root.removeEventListener('scroll', onScroll);
+      if (hasScrollend) root.removeEventListener('scrollend', onSettle);
     };
   }, [photos.length, startId]);
 
@@ -209,7 +229,9 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
         ref={rootRef}
         className="creative-expanded no-scrollbar"
       >
-        {renderList.map((item) => (
+        {renderList.map((item) => {
+          const wallSrc = item.photo.blurDataUrl ?? item.photo.url ?? null;
+          return (
           <section
             key={item.key}
             data-photo-id={item.photo.id}
@@ -217,6 +239,26 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
             className="creative-expanded-section"
           >
             <figure className="creative-expanded-frame-figure">
+              {/* Blur wall — positioned absolutely at the figure's
+                  center, sized with the same aspect-ratio + max-dim
+                  constraints as the actual image, so the blur and the
+                  image occupy the same footprint. The heavy CSS blur
+                  filter then bleeds the image's edge colors outward
+                  into the surrounding padding area — so the photo
+                  visibly "extends" into the background rather than
+                  sitting as a separate element on top of an unrelated
+                  blur of the whole frame. Only rendered in blur mode;
+                  solid-color walls use the frame bg instead. */}
+              {bgMode === 'blur' && wallSrc ? (
+                <div
+                  className="creative-expanded-section-blur"
+                  aria-hidden="true"
+                  style={{
+                    ['--wall-image' as unknown as string]: `url("${wallSrc}")`,
+                    ['--wall-aspect' as unknown as string]: String(item.photo.aspectRatio ?? 1.5),
+                  } as React.CSSProperties}
+                />
+              ) : null}
               <div
                 className="creative-expanded-image"
                 style={!item.photo.url ? { background: item.photo.placeholder } : undefined}
@@ -269,7 +311,8 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
               </span>
             </figcaption>
           </section>
-        ))}
+          );
+        })}
       </div>
 
       <div
@@ -317,33 +360,13 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
 }
 
 
-function resolveWallStyle(mode: BgMode, photo: Photo | undefined): React.CSSProperties {
-  if (mode === 'blur') {
-    if (!photo) return {};
-    // Priority order for the "from image" wall:
-    //   1. `blurDataUrl` — a 64-px pre-baked JPEG painted under a 40
-    //      px CSS blur. Static bitmap = no shimmer when neighboring
-    //      backdrop-filter pills hover. This is the primary path.
-    //   2. `url` — legacy fallback to the full-res photo, run
-    //      through an 80-px live blur. Works but shimmers.
-    //   3. `placeholder` gradient — static data with no bytes.
-    let wall: string;
-    let blurRadius: string;
-    if (photo.blurDataUrl) {
-      wall = `url("${photo.blurDataUrl}")`;
-      blurRadius = '40px';
-    } else if (photo.url) {
-      wall = `url("${photo.url}")`;
-      blurRadius = '80px';
-    } else {
-      wall = photo.placeholder;
-      blurRadius = '60px';
-    }
-    return {
-      ['--creative-wall-image' as unknown as string]: wall,
-      ['--creative-wall-blur-radius' as unknown as string]: blurRadius,
-    } as React.CSSProperties;
-  }
+function resolveWallStyle(mode: BgMode, _photo: Photo | undefined): React.CSSProperties {
+  // Blur mode draws a per-section backdrop (see the
+  // .creative-expanded-section-blur div inside each figure), so the
+  // frame itself only needs a neutral fill behind any padding the
+  // per-section blur doesn't cover. That fill comes from the
+  // --creative-bg var via a CSS rule keyed on data-bg-mode='blur'.
+  if (mode === 'blur') return {};
   const preset = BG_PRESETS.find((p) => p.id === mode);
   if (!preset) return {};
   return { background: preset.swatch };

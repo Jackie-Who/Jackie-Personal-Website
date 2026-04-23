@@ -702,28 +702,47 @@
   scrollbar-color: rgba(var(--creative-accent-rgb), 0.28) transparent;
 }
 
-/* Blur wall — fills the FRAME (not the scroll container) so it
-   stays pinned as the viewer scrolls. `background: var(--…)` makes
-   the backdrop react to React's activePhoto state updates within
-   one paint frame. The -40 px inset lets the big CSS blur feather
-   out past the frame edge so the vignette doesn't show hard
-   corners. Static bitmap underneath = no shimmer on neighbor
-   backdrop-filter hover. */
-.creative-expanded-frame[data-bg-mode='blur']::before {
-  content: '';
+/* Blur mode frame bg — the per-section blur wall (see below) paints
+   inside the image's footprint and bleeds outward via CSS blur, but
+   there's always some section-padding area (corners, gaps) that the
+   blur bleed doesn't cover. That shows through to this fill. Using
+   the theme's base bg keeps that neutral region unobtrusive. */
+.creative-expanded-frame[data-bg-mode='blur'] {
+  background: var(--creative-bg);
+}
+
+/* Per-section blur wall — one per photo, positioned absolutely at
+   the figure's center and sized with the SAME aspect-ratio +
+   max-width + max-height constraints as the actual image. That
+   means the blur occupies the exact footprint of the image it's
+   behind, and the heavy CSS blur radius then bleeds the photo's
+   edge colors outward into the surrounding padding. Result: the
+   image reads as "extending" into the wall rather than sitting on
+   top of a separate cover-sized blur that's disconnected from the
+   photo's framing. */
+.creative-expanded-section-blur {
   position: absolute;
-  inset: -40px;
-  z-index: 0;
-  background: var(--creative-wall-image, #1a1020) center / cover no-repeat;
-  filter: blur(var(--creative-wall-blur-radius, 40px)) saturate(150%) brightness(0.78);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  aspect-ratio: var(--wall-aspect, 1.5);
+  max-width: min(92vw, 1400px);
+  max-height: calc(100vh - 160px);
+  max-height: calc(100svh - 160px);
+  background-image: var(--wall-image);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: blur(70px) saturate(135%) brightness(0.72);
   pointer-events: none;
-  transition: filter 240ms ease;
+  z-index: 0;
 }
 
 /* Light-mode twin — lift brightness so photo colors don't crush
    against the cream canvas the rest of the page uses. */
-.creative-app[data-theme='light'] .creative-expanded-frame[data-bg-mode='blur']::before {
-  filter: blur(var(--creative-wall-blur-radius, 40px)) saturate(140%) brightness(1.08);
+.creative-app[data-theme='light'] .creative-expanded-section-blur {
+  filter: blur(70px) saturate(125%) brightness(1.08);
 }
 
 /* ---- Wall-color control (pill row, anchored bottom-RIGHT) ----
@@ -740,14 +759,14 @@
   align-items: center;
   gap: 6px;
   padding: 6px 8px;
-  background: rgba(var(--creative-glass-rgb), 0.42);
-  backdrop-filter: blur(22px) saturate(180%);
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
-  border: 0.5px solid rgba(var(--creative-accent-rgb), 0.22);
+  background: rgba(var(--creative-glass-rgb), 0.68);
+  backdrop-filter: blur(30px) saturate(200%);
+  -webkit-backdrop-filter: blur(30px) saturate(200%);
+  border: 0.5px solid rgba(var(--creative-accent-rgb), 0.28);
   border-radius: 999px;
   box-shadow:
-    inset 0 0.5px 0 rgba(var(--creative-accent-rgb), 0.24),
-    0 8px 24px -10px rgba(0, 0, 0, 0.35);
+    inset 0 0.5px 0 rgba(var(--creative-accent-rgb), 0.30),
+    0 10px 28px -12px rgba(0, 0, 0, 0.45);
   z-index: 4;
 }
 
@@ -800,6 +819,7 @@
 }
 
 .creative-expanded-frame-figure {
+  position: relative;
   margin: 0;
   display: flex;
   align-items: center;
@@ -808,6 +828,13 @@
   max-height: 100%;
   width: 100%;
   height: 100%;
+}
+
+/* Image sits ABOVE the per-section blur wall so the actual photo
+   is sharp while the blur bleeds out around its edges. */
+.creative-expanded-frame-figure .creative-expanded-image {
+  position: relative;
+  z-index: 1;
 }
 
 /* The image container shrinks to the <img>'s displayed size so the
@@ -903,13 +930,18 @@
   max-width: min(60%, 520px);
   padding: 10px 18px 11px;
   border-radius: 14px;
-  background: rgba(var(--creative-glass-rgb), 0.42);
-  backdrop-filter: blur(22px) saturate(180%);
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
-  border: 0.5px solid rgba(var(--creative-accent-rgb), 0.22);
+  /* Higher glass opacity + heavier backdrop-filter so the pill stays
+     frosted enough to read over any wall (blur mode in particular —
+     the pill often sits over high-contrast photo content). 0.68 is
+     translucent enough to still feel like glass but opaque enough
+     that text contrast doesn't fight the bitmap behind. */
+  background: rgba(var(--creative-glass-rgb), 0.68);
+  backdrop-filter: blur(30px) saturate(200%);
+  -webkit-backdrop-filter: blur(30px) saturate(200%);
+  border: 0.5px solid rgba(var(--creative-accent-rgb), 0.28);
   box-shadow:
-    inset 0 0.5px 0 rgba(var(--creative-accent-rgb), 0.24),
-    0 8px 24px -10px rgba(0, 0, 0, 0.35);
+    inset 0 0.5px 0 rgba(var(--creative-accent-rgb), 0.30),
+    0 10px 28px -12px rgba(0, 0, 0, 0.45);
   pointer-events: none;
   transition: background 220ms ease, border-color 220ms ease, color 220ms ease;
 }
@@ -954,11 +986,11 @@
 .creative-expanded-frame[data-bg-mode='light-gray'] .creative-expanded-caption,
 .creative-expanded-frame[data-bg-mode='white'] .creative-expanded-bg-ctrl,
 .creative-expanded-frame[data-bg-mode='light-gray'] .creative-expanded-bg-ctrl {
-  background: rgba(255, 255, 255, 0.55);
-  border-color: rgba(30, 42, 56, 0.20);
+  background: rgba(255, 255, 255, 0.78);
+  border-color: rgba(30, 42, 56, 0.22);
   box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.75),
-    0 8px 24px -10px rgba(0, 0, 0, 0.20);
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.85),
+    0 10px 28px -12px rgba(0, 0, 0, 0.22);
 }
 .creative-expanded-frame[data-bg-mode='white'] .creative-expanded-caption-title,
 .creative-expanded-frame[data-bg-mode='light-gray'] .creative-expanded-caption-title {
@@ -978,11 +1010,11 @@
 .creative-expanded-frame[data-bg-mode='gray'] .creative-expanded-bg-ctrl,
 .creative-expanded-frame[data-bg-mode='dark-gray'] .creative-expanded-bg-ctrl,
 .creative-expanded-frame[data-bg-mode='black'] .creative-expanded-bg-ctrl {
-  background: rgba(14, 16, 20, 0.55);
-  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(14, 16, 20, 0.76);
+  border-color: rgba(255, 255, 255, 0.22);
   box-shadow:
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.18),
-    0 8px 24px -10px rgba(0, 0, 0, 0.50);
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.22),
+    0 10px 28px -12px rgba(0, 0, 0, 0.55);
 }
 .creative-expanded-frame[data-bg-mode='gray'] .creative-expanded-caption-title,
 .creative-expanded-frame[data-bg-mode='dark-gray'] .creative-expanded-caption-title,

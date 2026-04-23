@@ -34,20 +34,21 @@ interface PhotoRow {
 // net effect is a soft, photo-colored wash that reads as a BACKGROUND,
 // not a recognizable copy of the image.
 //
-// Why 64px and not smaller: at 32px, upscaling to a 1080p+ viewport
-// produces pixel blocks ~34px tall on screen, and you'd need a ~50+px
-// CSS blur to cover them. That's expensive and still ended up mosaic-y
-// (the previous implementation). 64px gives each source pixel ~17px
-// on a 1080p viewport, which a 40px CSS blur covers comfortably.
-// Net payload: still tiny (~2–3 KB base64), still cheap to store per
-// row in Turso.
+// Why 96px: the blur wall renders per-section at the EXACT displayed
+// size of the image (via the same aspect-ratio + max-width + max-height
+// constraints). That means the bitmap is drawn at roughly the same
+// logical size on-screen as the blur JPEG, so we need enough detail
+// to preserve the photo's edge colors without the upscaling producing
+// visible pixel blocks. 96px captures low-freq edge gradients cleanly
+// while still being tiny on the wire (~3 KB base64). The big CSS blur
+// on top dissolves any JPEG artifacts.
 // ------------------------------------------------------------
-const BLUR_MAX_DIM = 64;
-/** Heuristic for "too-old-to-keep" blur data. The new 64-px base64
- *  JPEG at q=0.6 lands around ~2,000 chars; the old 32-px q=0.55
- *  format was ~800. Anything under 1,500 is the old version and the
- *  backfill should regenerate it. */
-export const BLUR_MIN_CHARS = 1500;
+const BLUR_MAX_DIM = 96;
+/** Heuristic for "too-old-to-keep" blur data. The new 96-px base64
+ *  JPEG at q=0.6 lands around ~2,800+ chars; the 64-px version was
+ *  ~1,800; the 32-px original ~800. Anything under 2,200 chars is an
+ *  older format and the backfill should regenerate it. */
+export const BLUR_MIN_CHARS = 2200;
 
 async function generateBlurDataUrl(source: File | string): Promise<string | null> {
   return new Promise((resolve) => {
