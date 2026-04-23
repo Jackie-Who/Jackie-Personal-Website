@@ -611,10 +611,11 @@
   display: block;
   flex: 0 0 auto;
   /* Shared fixed height → width resolves from aspect-ratio set
-     inline. clamp() tunes the size: comfortable ~180px on desktop,
-     smaller on tablet. Mobile override in the responsive block at
-     the bottom of this file. */
-  height: clamp(150px, 14vw, 200px);
+     inline. Sized to land around ~75 % of the old column-masonry
+     tile dimensions — smaller than pre-justified-rows, but not as
+     sparse as the first pass at this layout. Mobile override in
+     the responsive block at the bottom of this file. */
+  height: clamp(200px, 16vw, 240px);
   margin: 0;
   padding: 0;
   border: 0;
@@ -1079,10 +1080,10 @@
    Responsive
    ------------------------------------------------------- */
 @media (max-width: 720px) {
-  /* Smaller tile height on mobile so 2-3 landscape tiles fit per
-     row; portraits can fit 4+. Still flex-row + wrap. */
+  /* Smaller tile height on mobile so 2 landscape tiles fit per row
+     comfortably; portraits fit 3-4. Still flex-row + wrap. */
   .creative-photo-tile {
-    height: clamp(110px, 26vw, 160px);
+    height: clamp(140px, 30vw, 190px);
   }
   .creative-music {
     border-right: 0;
