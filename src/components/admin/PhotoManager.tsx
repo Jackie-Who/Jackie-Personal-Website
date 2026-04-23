@@ -152,28 +152,73 @@ function PhotoUploadForm({ onCancel, onSaved }: UploadProps) {
   const [aperture, setAperture] = useState('');
   const [shutter, setShutter] = useState('');
   const [iso, setIso] = useState('');
+  const [dateTaken, setDateTaken] = useState<string | null>(null);
   const [status, setStatus] = useState<'draft' | 'live'>('draft');
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
-  // Measure the picked image's natural dimensions so the server can
-  // store the aspect ratio alongside the row (see POST handler —
-  // derives layout from this too). Runs purely in the browser; no
-  // server round-trip just to read an <img> size.
-  const handleFilePick = (picked: File | null) => {
+  // Measure dimensions AND extract EXIF entirely in the browser.
+  // The bytes never leave the client side until the direct-to-R2
+  // PUT at submit time — Vercel's 4.5 MB function-body limit never
+  // sees the image. exifr is a universal package (Node + browser);
+  // dynamic-imported here so the chunk is code-split away from
+  // whatever else the admin bundle carries.
+  const handleFilePick = async (picked: File | null) => {
     setFile(picked);
     setAspectRatio(null);
+    setAperture('');
+    setShutter('');
+    setIso('');
+    setDateTaken(null);
     if (!picked) return;
-    const url = URL.createObjectURL(picked);
+
+    // Natural dimensions → aspect ratio (used for layout + gallery
+    // slot reservation).
+    const objectUrl = URL.createObjectURL(picked);
     const img = new Image();
     img.onload = () => {
       if (img.naturalWidth > 0 && img.naturalHeight > 0) {
         setAspectRatio(img.naturalWidth / img.naturalHeight);
       }
-      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(objectUrl);
     };
-    img.onerror = () => URL.revokeObjectURL(url);
-    img.src = url;
+    img.onerror = () => URL.revokeObjectURL(objectUrl);
+    img.src = objectUrl;
+
+    // EXIF — fills the three displayed fields + captures the
+    // capture-date for year grouping. Silent on failure so the
+    // admin can still edit manually.
+    try {
+      const mod = (await import('exifr')) as {
+        parse: (f: File, opts: unknown) => Promise<Record<string, unknown> | undefined>;
+      };
+      const raw = await mod.parse(picked, {
+        tiff: true,
+        exif: true,
+        gps: false,
+        xmp: false,
+        pick: ['FNumber', 'ApertureValue', 'ExposureTime', 'ShutterSpeedValue', 'ISO', 'DateTimeOriginal'],
+      });
+      if (raw) {
+        const f = (raw.FNumber ?? raw.ApertureValue) as number | undefined;
+        if (f) setAperture(`ƒ/${Math.round(f * 10) / 10}`);
+
+        const s = (raw.ExposureTime ?? raw.ShutterSpeedValue) as number | undefined;
+        if (s) {
+          if (s >= 1) setShutter(`${s}s`);
+          else setShutter(`1/${Math.round(1 / s)}s`);
+        }
+
+        const isoVal = raw.ISO as number | undefined;
+        if (isoVal) setIso(`ISO ${isoVal}`);
+
+        const date = raw.DateTimeOriginal as Date | string | undefined;
+        if (date) setDateTaken(new Date(date).toISOString());
+      }
+    } catch {
+      /* EXIF absent or unparseable — admin fills manually */
+    }
   };
 
   const submit = async (saveStatus: 'draft' | 'live') => {
@@ -183,23 +228,70 @@ function PhotoUploadForm({ onCancel, onSaved }: UploadProps) {
     }
     setBusy(true);
     setError(null);
+    setProgress('');
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('title', title || file.name);
-      if (aspectRatio) fd.append('aspect_ratio', String(aspectRatio));
-      fd.append('aperture', aperture);
-      fd.append('shutter', shutter);
-      fd.append('iso', iso);
-      fd.append('status', saveStatus);
-      const r = await fetch('/api/photos', { method: 'POST', body: fd });
-      const data = (await r.json().catch(() => ({}))) as { error?: string };
-      if (!r.ok) throw new Error(data.error ?? `Upload failed (${r.status})`);
+      // 1. Ask the server for a presigned PUT URL. Short-lived
+      //    (10 minutes) and content-type-bound so a stolen URL
+      //    can't be used to upload arbitrary content.
+      setProgress('Preparing upload…');
+      const contentType = file.type || 'application/octet-stream';
+      const presignR = await fetch('/api/photos/presign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: file.name, contentType }),
+      });
+      const presignData = (await presignR.json().catch(() => ({}))) as {
+        id?: string;
+        r2_key?: string;
+        upload_url?: string;
+        public_url?: string;
+        error?: string;
+      };
+      if (!presignR.ok || !presignData.upload_url || !presignData.id || !presignData.r2_key) {
+        throw new Error(presignData.error ?? `Presign failed (${presignR.status})`);
+      }
+
+      // 2. Upload the bytes directly to R2. This bypasses Vercel
+      //    entirely so the 4.5 MB function-body limit doesn't
+      //    apply — R2's object size ceiling is 5 TB.
+      setProgress('Uploading to storage…');
+      const putR = await fetch(presignData.upload_url, {
+        method: 'PUT',
+        headers: { 'Content-Type': contentType },
+        body: file,
+      });
+      if (!putR.ok) {
+        throw new Error(`Upload to storage failed (${putR.status})`);
+      }
+
+      // 3. Write the DB row now that the bytes are safely at rest
+      //    in R2. If this fails, the R2 object is orphaned — not
+      //    fatal (it's cheap to re-upload); the admin can re-try.
+      setProgress('Saving details…');
+      const metaR = await fetch('/api/photos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: presignData.id,
+          r2_key: presignData.r2_key,
+          filename: file.name,
+          title: title || file.name,
+          aspect_ratio: aspectRatio,
+          aperture,
+          shutter,
+          iso,
+          date_taken: dateTaken,
+          status: saveStatus,
+        }),
+      });
+      const metaData = (await metaR.json().catch(() => ({}))) as { error?: string };
+      if (!metaR.ok) throw new Error(metaData.error ?? `Save failed (${metaR.status})`);
       onSaved();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upload failed');
     } finally {
       setBusy(false);
+      setProgress('');
     }
   };
 
@@ -221,7 +313,7 @@ function PhotoUploadForm({ onCancel, onSaved }: UploadProps) {
           required
         />
         <p style={{ fontSize: '0.75rem', color: 'rgba(232,236,244,0.45)', margin: '6px 0 0' }}>
-          JPG / PNG / WebP. EXIF and aspect ratio are auto-detected on upload — no need to tell us whether it's portrait or landscape.
+          JPG / PNG / WebP. EXIF, capture date, and aspect ratio are read the moment you pick the file — no upload size limit (bytes go straight to R2, bypassing the serverless body cap).
         </p>
       </div>
 
@@ -250,11 +342,16 @@ function PhotoUploadForm({ onCancel, onSaved }: UploadProps) {
           <input className="admin-input" value={iso} onChange={(e) => setIso(e.target.value)} placeholder="ISO 200" />
         </label>
         <p style={{ fontSize: '0.72rem', color: 'rgba(232,236,244,0.4)', margin: '6px 0 0' }}>
-          Blank fields will be populated from EXIF when the file is uploaded.
+          Fields auto-populate from the file's EXIF when a photo is picked. Override anything above before saving.
         </p>
       </div>
 
       {error ? <div className="admin-error">{error}</div> : null}
+      {busy && progress ? (
+        <div style={{ fontSize: '0.8rem', color: 'rgba(232,236,244,0.65)', fontStyle: 'italic' }}>
+          {progress}
+        </div>
+      ) : null}
 
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <button type="button" className="admin-btn" onClick={onCancel} disabled={busy}>Cancel</button>

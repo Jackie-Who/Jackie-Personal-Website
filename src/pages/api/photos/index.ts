@@ -1,15 +1,22 @@
 import type { APIRoute } from 'astro';
 import { isAuthenticated } from '@/lib/auth';
 import { listPhotos, insertPhoto, type PhotoRow } from '@/lib/db';
-import { uploadToR2, buildR2Key } from '@/lib/r2';
-import { extractExif } from '@/lib/exif';
-import { newId } from '@/lib/ids';
 
 export const prerender = false;
 
 /**
  * GET  /api/photos  — list (admin only)
- * POST /api/photos  — multipart/form-data with file + fields → creates row + uploads to R2
+ * POST /api/photos  — JSON body describing a photo that's already
+ *                     been PUT to R2 via the presigned URL flow.
+ *
+ * The POST handler used to be multipart/form-data — the browser
+ * shipped the file bytes, we uploaded to R2, then wrote the DB row.
+ * Vercel caps serverless function bodies at 4.5 MB, so any photo
+ * larger than that got 413'd before the handler ran. The upload
+ * flow is now split in two:
+ *   1. client asks /api/photos/presign for a signed PUT URL
+ *   2. client PUTs the bytes directly to R2 (no Vercel in the loop)
+ *   3. client POSTs to this endpoint with the metadata + r2_key
  */
 export const GET: APIRoute = async ({ cookies }) => {
   if (!(await isAuthenticated(cookies))) return err('Unauthorized', 401);
@@ -21,65 +28,63 @@ export const GET: APIRoute = async ({ cookies }) => {
   }
 };
 
+interface CreatePhotoBody {
+  id?: string;
+  r2_key?: string;
+  filename?: string;
+  title?: string;
+  aspect_ratio?: number | string | null;
+  aperture?: string | null;
+  shutter?: string | null;
+  iso?: string | null;
+  status?: 'draft' | 'live';
+  sort_order?: number | string;
+  date_taken?: string | null;
+}
+
 export const POST: APIRoute = async ({ request, cookies }) => {
   if (!(await isAuthenticated(cookies))) return err('Unauthorized', 401);
 
-  let form: FormData;
+  let body: CreatePhotoBody;
   try {
-    form = await request.formData();
+    body = (await request.json()) as CreatePhotoBody;
   } catch {
-    return err('Expected multipart/form-data', 400);
+    return err('Expected JSON body', 400);
   }
 
-  const file = form.get('file');
-  if (!(file instanceof File)) return err('Missing file field', 400);
+  const id = (body.id ?? '').trim();
+  const r2Key = (body.r2_key ?? '').trim();
+  const filename = (body.filename ?? '').trim();
+  if (!id || !r2Key || !filename) return err('Missing id / r2_key / filename', 400);
 
-  const title = (form.get('title') as string | null) ?? file.name;
-  const status = ((form.get('status') as string | null) ?? 'draft') as 'draft' | 'live';
-  const sortOrder = Number((form.get('sort_order') as string | null) ?? 0);
+  const title = (body.title ?? '').trim() || filename;
+  const status: 'draft' | 'live' = body.status === 'live' ? 'live' : 'draft';
+  const rawSort = Number(body.sort_order ?? 0);
+  const sortOrder = Number.isFinite(rawSort) ? rawSort : 0;
 
-  // Aspect ratio is measured client-side via new Image() before
-  // upload and sent as a float. Layout is derived from it — wide
-  // (lands ≥ 1.4:1) spans more grid room, standard is the default.
-  const rawAspect = Number((form.get('aspect_ratio') as string | null) ?? '');
+  // Aspect ratio is measured client-side via `new Image()` before
+  // upload. Layout derives from it — wide (≥ 1.4:1) gets the wider
+  // tile slot in the gallery; everything else is standard.
+  const rawAspect = Number(body.aspect_ratio ?? '');
   const aspectRatio = Number.isFinite(rawAspect) && rawAspect > 0 ? rawAspect : null;
   const layout: 'standard' | 'wide' = aspectRatio && aspectRatio >= 1.4 ? 'wide' : 'standard';
 
-  const buf = Buffer.from(await file.arrayBuffer());
-  const exif = await extractExif(buf);
+  // The admin's EXIF fields are whatever the client produced: either
+  // auto-filled from browser-side exifr, or hand-typed. Normalize to
+  // the display format either way so the public gallery never has to
+  // guess (viewer types "1.8" → stored "ƒ/1.8"; "1/250" → "1/250s";
+  // "100" → "ISO 100"; already-formatted values pass through).
+  const aperture = normalizeAperture(body.aperture ?? null);
+  const shutter = normalizeShutter(body.shutter ?? null);
+  const iso = normalizeIso(body.iso ?? null);
 
-  // Form overrides win over EXIF for the three kept fields. The
-  // dropped columns (focal_length, camera, lens, category) stay in
-  // the schema for back-compat with any pre-existing rows, but are
-  // always written as NULL for new uploads.
-  //
-  // Raw form inputs from the admin are normalized to the display
-  // format — viewer types "1.8" → stored as "ƒ/1.8", "1/250" →
-  // "1/250s", "100" → "ISO 100". Already-formatted values (e.g.
-  // EXIF auto-fill) pass through unchanged.
-  const aperture = normalizeAperture((form.get('aperture') as string | null) ?? exif.aperture);
-  const shutter = normalizeShutter((form.get('shutter') as string | null) ?? exif.shutter);
-  const iso = normalizeIso((form.get('iso') as string | null) ?? exif.iso);
-
-  const id = newId('p');
-  const key = buildR2Key('photos', id, file.name);
-
-  try {
-    await uploadToR2(key, buf, file.type || 'application/octet-stream');
-  } catch (e) {
-    return err(`R2 upload failed: ${describe(e)}`, 500);
-  }
-
-  // Admin can override the EXIF-derived date via a `date_taken`
-  // form field (ISO string). Otherwise fall back to EXIF's
-  // DateTimeOriginal.
-  const dateTaken = (form.get('date_taken') as string | null) ?? exif.dateTaken;
+  const dateTaken = (body.date_taken ?? null) || null;
 
   const row: PhotoRow = {
     id,
     title,
-    filename: file.name,
-    r2_key: key,
+    filename,
+    r2_key: r2Key,
     focal_length: null,
     aperture,
     shutter_speed: shutter,
@@ -89,7 +94,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     category: null,
     layout,
     status,
-    sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
+    sort_order: sortOrder,
     date_taken: dateTaken,
     aspect_ratio: aspectRatio,
     created_at: new Date().toISOString(),

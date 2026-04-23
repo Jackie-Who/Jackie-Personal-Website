@@ -756,52 +756,55 @@
 }
 
 .creative-expanded-section {
+  /* Each section is exactly one viewport tall so scroll-snap moves
+     you one image at a time and the caption pill (absolute-positioned
+     inside the image) never requires scrolling to reveal. */
+  height: 100%;
   min-height: 100%;
   scroll-snap-align: start;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 18px;
-  padding: 20px clamp(16px, 3vw, 40px) 28px;
+  padding: clamp(24px, 4vh, 56px) clamp(16px, 3vw, 40px);
+  box-sizing: border-box;
 }
 
 .creative-expanded-frame-figure {
   margin: 0;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 14px;
-  max-width: min(92vw, 1400px);
-  width: 100%;
-}
-
-/* The image container sizes itself to the <img> inside. max-height
-   keeps the image within the viewport on every display size —
-   tall portraits shrink to fit, wide landscapes show at full width.
-   No forced aspect ratio, no cropping. */
-.creative-expanded-image {
-  position: relative;
-  max-width: 100%;
-  /* Leave room for the header-area + the museum caption below. */
-  max-height: calc(100vh - 180px);
-  max-height: calc(100svh - 180px);
-  display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
-  overflow: hidden;
-  align-self: center;
+  max-width: min(92vw, 1400px);
+  max-height: 100%;
+  width: 100%;
+  height: 100%;
 }
 
+/* The image container shrinks to the <img>'s displayed size so the
+   overlaid caption pill + close X sit on the photo's actual edge
+   (not on a stretched container filling the whole section).
+   Using inline-block gives us that shrink-to-fit behavior; the
+   img's max-* constraints do the actual sizing. */
+.creative-expanded-image {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* Image size caps live directly on the <img> (decoupled from
+   parent height to avoid a circular %-based chain on the flex
+   ancestors). Leaves ~96px of breathing room at top/bottom for the
+   header-area pills and bg-control row so nothing overlaps. */
 .creative-expanded-img {
   display: block;
-  max-width: 100%;
-  max-height: calc(100vh - 180px);
-  max-height: calc(100svh - 180px);
+  max-width: min(92vw, 1400px);
+  max-height: calc(100vh - 96px);
+  max-height: calc(100svh - 96px);
   width: auto;
   height: auto;
-  object-fit: contain;
 }
 
 /* Close X — fully hidden until the image is hovered, then fades
@@ -847,25 +850,43 @@
   outline: none;
 }
 
-/* Museum-style caption block. Reads like a wall plate next to the
-   artwork — title in serif italic on top, technical details in
-   quiet monospace underneath. Left-aligned, sitting at the same
-   left edge as the image. */
+/* Museum-style caption block — floats as a glass pill pinned to
+   the image's bottom-left corner so it reads like a wall plate
+   under the artwork without pushing the image upward. Chrome matches
+   the back / theme-toggle pills top-left (same backdrop-filter, same
+   border treatment) so the whole expanded view reads as one system.
+   Text colors fix to a dark-on-glass palette regardless of the page
+   theme — the pill sits on top of arbitrary photo content, so it
+   can't inherit the page's light/dark variables without risking
+   illegibility against the photo behind it. */
 .creative-expanded-caption {
+  position: absolute;
+  left: 18px;
+  bottom: 18px;
+  z-index: 3;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  align-self: flex-start;
-  padding: 0 2px;
-  max-width: 100%;
+  max-width: min(78%, 640px);
+  padding: 10px 16px 11px;
+  border-radius: 14px;
+  background: rgba(16, 10, 20, 0.55);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border: 0.5px solid rgba(255, 255, 255, 0.18);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.18),
+    0 8px 22px -12px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
 }
 
 .creative-expanded-caption-title {
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-style: italic;
-  color: var(--creative-text);
+  color: rgba(255, 255, 255, 0.96);
   letter-spacing: 0.005em;
   line-height: 1.2;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 .creative-expanded-caption-meta {
@@ -875,9 +896,10 @@
   flex-wrap: wrap;
   font-family: 'JetBrains Mono', 'Courier New', monospace;
   font-style: normal;
-  font-size: 0.72rem;
-  color: var(--creative-text-muted);
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.72);
   letter-spacing: 0.04em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 .creative-expanded-caption-dot {

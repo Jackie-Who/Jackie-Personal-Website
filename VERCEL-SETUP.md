@@ -117,14 +117,25 @@ Save that as **`TURSO_AUTH_TOKEN`**.
 
 ### 3e. Apply the schema
 
-From the `site/` directory of this repo:
+From the `site/` directory of this repo, either:
+
+```bash
+# Idempotent runner — applies every migrations/*.sql in order,
+# skips statements whose objects already exist. Safe to re-run.
+npm run migrate
+```
+
+…which reads `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` from your shell
+env **or** from `site/.env` (whichever it finds first). Or pipe each
+SQL file manually:
 
 ```bash
 turso db shell jackie-site < migrations/0001_init.sql
 turso db shell jackie-site < migrations/0002_photo_date_taken.sql
+turso db shell jackie-site < migrations/0003_photo_aspect_ratio.sql
 ```
 
-Both should print nothing on success. Verify:
+Verify:
 
 ```bash
 turso db shell jackie-site ".tables"
@@ -200,6 +211,41 @@ Cloudflare shows the values ONCE. Copy both immediately:
 - **Secret Access Key** → save as `R2_SECRET_ACCESS_KEY`
 
 If you lose them you'll have to delete the token and make a new one.
+
+### 4g. Configure bucket CORS (required for direct-upload)
+
+Photo uploads stream **directly from your browser to R2** via a
+presigned URL — this is what keeps the flow working for images bigger
+than Vercel's 4.5 MB serverless-body limit. But browsers enforce CORS,
+so R2 has to be told your admin site is allowed to PUT to it.
+
+1. R2 → your bucket → **Settings** tab
+2. Scroll to **CORS policy** → click **Add CORS policy** (or "Edit"
+   if one already exists)
+3. Paste this JSON, replacing `https://jackiehu.dev` with your actual
+   production domain (add `https://<project>.vercel.app` too if you
+   want preview deploys to upload):
+
+   ```json
+   [
+     {
+       "AllowedOrigins": [
+         "https://jackiehu.dev",
+         "http://localhost:4321"
+       ],
+       "AllowedMethods": ["PUT"],
+       "AllowedHeaders": ["Content-Type"],
+       "ExposeHeaders": ["ETag"],
+       "MaxAgeSeconds": 3600
+     }
+   ]
+   ```
+
+4. Save
+
+Without this, browser uploads fail with a CORS preflight error and
+the admin form shows `Upload to storage failed (0)` or similar. The
+server-to-server S3 API you use for reads isn't affected.
 
 ---
 
@@ -281,9 +327,7 @@ TURSO_DATABASE_URL=file:./local.db
 Then apply the schema to the local file:
 
 ```bash
-npm install -g @libsql/libsql-cli   # or use `turso` which also works on file:
-turso db shell file:./local.db < migrations/0001_init.sql
-turso db shell file:./local.db < migrations/0002_photo_date_taken.sql
+npm run migrate   # reads site/.env automatically
 ```
 
 R2 for local dev: easiest is to use the same bucket as production.

@@ -159,28 +159,30 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
                   />
                 </svg>
               </button>
-            </div>
 
-            {/* Museum-style label — small left-aligned card below
-                the image. Title sits on top in serif italic; a
-                single monospaced line beneath lists the technical
-                details; year-taken (if known) reads on the right. */}
-            <figcaption className="creative-expanded-caption">
-              <span className="creative-expanded-caption-title">{p.title}</span>
-              <span className="creative-expanded-caption-meta">
-                <span>{p.aperture}</span>
-                <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
-                <span>{p.shutter}</span>
-                <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
-                <span>{p.iso}</span>
-                {p.year ? (
-                  <>
-                    <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
-                    <span>{p.year}</span>
-                  </>
-                ) : null}
-              </span>
-            </figcaption>
+              {/* Museum-style label — overlaid as a glass pill in the
+                  bottom-left of the image. Title sits on top in serif
+                  italic; a single monospaced line beneath lists the
+                  technical details. Lives inside the image box so the
+                  whole section fits a single viewport (no scroll to
+                  reveal the caption). */}
+              <figcaption className="creative-expanded-caption">
+                <span className="creative-expanded-caption-title">{p.title}</span>
+                <span className="creative-expanded-caption-meta">
+                  <span>{p.aperture}</span>
+                  <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
+                  <span>{p.shutter}</span>
+                  <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
+                  <span>{p.iso}</span>
+                  {p.year ? (
+                    <>
+                      <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
+                      <span>{p.year}</span>
+                    </>
+                  ) : null}
+                </span>
+              </figcaption>
+            </div>
           </figure>
         </section>
       ))}
@@ -234,11 +236,13 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
 function resolveWallStyle(mode: BgMode, photo: Photo | undefined): React.CSSProperties {
   if (mode === 'blur') {
     if (!photo) return {};
-    // We layer the photo's CSS gradient as the backdrop and rely on a
-    // ::before pseudo in creative.css to blur it. The custom property
-    // lets the CSS read whichever gradient is active. When Phase 5
-    // ships real images, this same custom property can carry a url(…).
-    return { ['--creative-wall-image' as unknown as string]: photo.placeholder } as React.CSSProperties;
+    // Real photos (with a `url`) get their own bytes painted as the
+    // backdrop via `url(…)`; the CSS ::before in creative.css blurs
+    // that image to produce the Lightroom-style "from image" wall.
+    // Placeholder entries (pre-CMS static data, `url` = null) fall
+    // back to their CSS gradient — still produces a coherent tint.
+    const wall = photo.url ? `url("${photo.url}")` : photo.placeholder;
+    return { ['--creative-wall-image' as unknown as string]: wall } as React.CSSProperties;
   }
   const preset = BG_PRESETS.find((p) => p.id === mode);
   if (!preset) return {};

@@ -4,6 +4,7 @@ import {
   DeleteObjectCommand,
   type PutObjectCommandInput,
 } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 /**
  * Cloudflare R2 client wrapper.
@@ -87,6 +88,32 @@ export async function uploadToR2(
 export async function deleteFromR2(key: string): Promise<void> {
   const { client: c, bucket } = getClient();
   await c.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+}
+
+/**
+ * Generate a presigned PUT URL so the browser can upload the file
+ * bytes directly to R2 instead of routing them through Vercel (which
+ * caps serverless request bodies at 4.5 MB — any photo bigger than
+ * that gets a 413 FUNCTION_PAYLOAD_TOO_LARGE before it ever reaches
+ * our handler). The signed URL is valid for `expiresSec` seconds and
+ * only allows the exact contentType passed in, so a stolen URL can't
+ * be used to upload arbitrary content.
+ */
+export async function presignUploadUrl(
+  key: string,
+  contentType: string,
+  expiresSec = 600,
+): Promise<{ url: string; key: string; publicUrl: string }> {
+  const { client: c, bucket, publicUrl } = getClient();
+  const cmd = new PutObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    ContentType: contentType,
+    CacheControl: 'public, max-age=31536000, immutable',
+  });
+  const url = await getSignedUrl(c, cmd, { expiresIn: expiresSec });
+  const normalized = publicUrl.replace(/\/$/, '');
+  return { url, key, publicUrl: `${normalized}/${encodeURI(key)}` };
 }
 
 /**
