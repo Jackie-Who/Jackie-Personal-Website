@@ -665,69 +665,77 @@
 /* -------------------------------------------------------
    Photo expanded view — scroll-snap single image
 
-   Wall color is driven by [data-bg-mode] on the scroll container.
-   Inline styles set by PhotoExpanded.tsx override the background
-   for preset colors; [data-bg-mode='blur'] activates a ::before
-   that paints a blurred copy of the active photo as the wall.
-
-   The .creative-expanded-frame wraps the scrollable view and the
-   bg-control pill so the control can stay pinned to the bottom
-   of the viewport without participating in scroll-snap.
+   Layered architecture:
+   - .creative-expanded-frame (outer)       — owns data-bg-mode, the
+       inline --creative-wall-image var, and the ::before pseudo that
+       paints the blurred wall. This layer DOES NOT scroll, so the
+       wall stays pinned to the visible area as the viewer scrolls
+       through images. Background bytes only repaint when the React
+       state (activePhoto) changes.
+   - .creative-expanded (inner)             — the scroll container
+       with scroll-snap. Transparent bg so the frame's wall shows
+       through. Sections inside are each viewport-tall.
+   - .creative-expanded-section             — one per photo, contains
+       the image + its caption pill. position: relative for the
+       caption's absolute anchor.
+   - .creative-expanded-bg-ctrl             — sibling of the scroll
+       container inside the frame, pinned bottom-right. Doesn't
+       participate in scroll-snap.
    ------------------------------------------------------- */
 .creative-expanded-frame {
   position: relative;
-  /* The header bar is now in-flow above .creative-main, so the
-     stage's usable height is already the space below the bar —
-     no manual viewport math required. */
   height: 100%;
   min-height: 100%;
+  isolation: isolate;
+  overflow: hidden;
+  transition: background 240ms ease;
 }
 
 .creative-expanded {
   position: relative;
+  z-index: 1;
   height: 100%;
   overflow-y: auto;
   scroll-snap-type: y mandatory;
-  transition: background 260ms ease;
-  isolation: isolate;
+  background: transparent;
   scrollbar-width: thin;
   scrollbar-color: rgba(var(--creative-accent-rgb), 0.28) transparent;
 }
 
-/* Blur wall — fills the scroll container with the photo's
-   pre-blurred backdrop. Sits behind the image sections via
-   z-index: -1 (stays within the isolated stacking context).
-   --creative-wall-blur-radius is set inline by PhotoExpanded —
-   ~6px when the backdrop is already a tiny pre-baked JPEG (just
-   smooths the upscale), ~60px when we're falling back to the
-   full-res original. The 6px case is the one that stops the
-   shimmer — the whole backdrop is bitmap-cheap so nothing has
-   to recompute on neighbor hover. */
-.creative-expanded[data-bg-mode='blur']::before {
+/* Blur wall — fills the FRAME (not the scroll container) so it
+   stays pinned as the viewer scrolls. `background: var(--…)` makes
+   the backdrop react to React's activePhoto state updates within
+   one paint frame. The -40 px inset lets the big CSS blur feather
+   out past the frame edge so the vignette doesn't show hard
+   corners. Static bitmap underneath = no shimmer on neighbor
+   backdrop-filter hover. */
+.creative-expanded-frame[data-bg-mode='blur']::before {
   content: '';
   position: absolute;
   inset: -40px;
-  z-index: -1;
+  z-index: 0;
   background: var(--creative-wall-image, #1a1020) center / cover no-repeat;
-  filter: blur(var(--creative-wall-blur-radius, 60px)) saturate(140%) brightness(0.82);
+  filter: blur(var(--creative-wall-blur-radius, 40px)) saturate(150%) brightness(0.78);
   pointer-events: none;
+  transition: filter 240ms ease;
 }
 
-/* Light-mode twin — lift brightness so the photo colors don't get
-   crushed against the cream canvas the rest of the page uses. */
-.creative-app[data-theme='light'] .creative-expanded[data-bg-mode='blur']::before {
-  filter: blur(var(--creative-wall-blur-radius, 60px)) saturate(130%) brightness(1.05);
+/* Light-mode twin — lift brightness so photo colors don't crush
+   against the cream canvas the rest of the page uses. */
+.creative-app[data-theme='light'] .creative-expanded-frame[data-bg-mode='blur']::before {
+  filter: blur(var(--creative-wall-blur-radius, 40px)) saturate(140%) brightness(1.08);
 }
 
-/* ---- Wall-color control (pill row, anchored bottom-left) ----
+/* ---- Wall-color control (pill row, anchored bottom-RIGHT) ----
    Mirrors the glass treatment of the back / theme pills top-left
-   so the two clusters read as a matched pair. Moved to bottom-LEFT
-   because the caption now lives bottom-RIGHT — otherwise the two
-   pills would collide on narrow viewports. */
+   so the two clusters read as a matched pair. Caption pill occupies
+   bottom-LEFT; these two never collide as long as both stay in
+   their own corners. Background + border colors switch based on the
+   chosen wall (see the per-bg-mode block below the caption rules). */
 .creative-expanded-bg-ctrl {
   position: absolute;
   bottom: 18px;
-  left: 22px;
+  right: 22px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -773,11 +781,11 @@
 }
 
 .creative-expanded-section {
-  /* Each section is exactly one viewport tall; the padding frames
-     the image with breathing room on every edge so you never see
-     the edge of the neighboring section bleeding in while scrolling.
-     Caption pill + wall-color pill live in this same section and
-     position themselves against its box. */
+  /* Each section is exactly one viewport tall; symmetric top/bottom
+     padding frames the image so the background visibly wraps on
+     both sides. Scroll-snap + scroll-snap-stop: always makes one
+     scroll = one image without drift. overflow: hidden clips any
+     image overflow so the next section never peeks in. */
   position: relative;
   height: 100%;
   min-height: 100%;
@@ -786,7 +794,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 56px clamp(20px, 3vw, 48px) 96px;
+  padding: 80px clamp(20px, 3vw, 48px);
   box-sizing: border-box;
   overflow: hidden;
 }
@@ -818,15 +826,15 @@
 
 /* Image size caps live directly on the <img> (decoupled from
    parent height to avoid a circular %-based chain on the flex
-   ancestors). Matches the section padding total (56 top + 96
-   bottom = 152 px reserved for header-area pills + caption +
-   wall-color control) so the image never overflows the section
-   and peeks into the next one during scroll-snap. */
+   ancestors). Matches the section padding total (80 + 80 = 160 px)
+   so the image lands exactly inside the padded box, with the
+   caption + bg-ctrl pills overlaying the bottom-left / bottom-right
+   padding area on their own z-layer. */
 .creative-expanded-img {
   display: block;
   max-width: min(92vw, 1400px);
-  max-height: calc(100vh - 152px);
-  max-height: calc(100svh - 152px);
+  max-height: calc(100vh - 160px);
+  max-height: calc(100svh - 160px);
   width: auto;
   height: auto;
 }
@@ -876,22 +884,21 @@
   outline: none;
 }
 
-/* Museum-style caption — glass pill anchored to the section's
-   bottom-right corner, rendered on the background (NOT overlaid on
-   the image). Chrome pulls from the creative-palette CSS vars
-   (glass-rgb, accent-rgb, text) so it matches the back / theme
-   pills in both Mist dark and Cream light modes. In dark mode you
-   get a near-black translucent plate with sky-accent border + pale
-   text; in light mode it's a frosted white plate with sky-blue
-   border + navy text — same chrome treatment as the corner pills. */
+/* Museum-style caption — glass pill anchored bottom-LEFT of the
+   section (on the background, NOT overlaid on the image). Default
+   chrome pulls from the creative-palette CSS vars so the dark/light
+   theme toggle propagates; [data-bg-mode] selectors below override
+   the colors on specific wall presets (e.g. force dark text on a
+   white wall regardless of theme) so the label stays legible no
+   matter what the viewer picks. */
 .creative-expanded-caption {
   position: absolute;
-  right: 22px;
+  left: 22px;
   bottom: 18px;
   z-index: 3;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 4px;
   max-width: min(60%, 520px);
   padding: 10px 18px 11px;
@@ -904,6 +911,7 @@
     inset 0 0.5px 0 rgba(var(--creative-accent-rgb), 0.24),
     0 8px 24px -10px rgba(0, 0, 0, 0.35);
   pointer-events: none;
+  transition: background 220ms ease, border-color 220ms ease, color 220ms ease;
 }
 
 .creative-expanded-caption-title {
@@ -912,12 +920,13 @@
   color: var(--creative-text);
   letter-spacing: 0.005em;
   line-height: 1.2;
+  transition: color 220ms ease;
 }
 
 .creative-expanded-caption-meta {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 6px;
   flex-wrap: wrap;
   font-family: 'JetBrains Mono', 'Courier New', monospace;
@@ -925,11 +934,70 @@
   font-size: 0.7rem;
   color: var(--creative-text-muted);
   letter-spacing: 0.04em;
+  transition: color 220ms ease;
 }
 
 .creative-expanded-caption-dot {
   opacity: 0.55;
 }
+
+/* ---- Per-bg-mode glass + text colors ----
+   The caption pill sits on top of whichever wall color the viewer
+   picked. To stay legible regardless of theme, we ignore the usual
+   --creative-* vars on the explicit color walls and force a palette
+   that pairs with the chosen bg. Blur + preset-free modes keep the
+   theme-driven defaults above. Same treatment applied to the
+   wall-color pill so the two clusters read as a matched pair. */
+
+/* Light walls (white, light-gray): frosted-white glass + dark text */
+.creative-expanded-frame[data-bg-mode='white'] .creative-expanded-caption,
+.creative-expanded-frame[data-bg-mode='light-gray'] .creative-expanded-caption,
+.creative-expanded-frame[data-bg-mode='white'] .creative-expanded-bg-ctrl,
+.creative-expanded-frame[data-bg-mode='light-gray'] .creative-expanded-bg-ctrl {
+  background: rgba(255, 255, 255, 0.55);
+  border-color: rgba(30, 42, 56, 0.20);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.75),
+    0 8px 24px -10px rgba(0, 0, 0, 0.20);
+}
+.creative-expanded-frame[data-bg-mode='white'] .creative-expanded-caption-title,
+.creative-expanded-frame[data-bg-mode='light-gray'] .creative-expanded-caption-title {
+  color: #1e2a38;
+}
+.creative-expanded-frame[data-bg-mode='white'] .creative-expanded-caption-meta,
+.creative-expanded-frame[data-bg-mode='light-gray'] .creative-expanded-caption-meta {
+  color: #4a5b70;
+}
+
+/* Dark walls (gray / dark-gray / black): smoked glass + light text.
+   Gray is a neutral mid-tone — dark text on it is barely readable
+   either way, and light-on-dark wins for the gray+black spectrum. */
+.creative-expanded-frame[data-bg-mode='gray'] .creative-expanded-caption,
+.creative-expanded-frame[data-bg-mode='dark-gray'] .creative-expanded-caption,
+.creative-expanded-frame[data-bg-mode='black'] .creative-expanded-caption,
+.creative-expanded-frame[data-bg-mode='gray'] .creative-expanded-bg-ctrl,
+.creative-expanded-frame[data-bg-mode='dark-gray'] .creative-expanded-bg-ctrl,
+.creative-expanded-frame[data-bg-mode='black'] .creative-expanded-bg-ctrl {
+  background: rgba(14, 16, 20, 0.55);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.18),
+    0 8px 24px -10px rgba(0, 0, 0, 0.50);
+}
+.creative-expanded-frame[data-bg-mode='gray'] .creative-expanded-caption-title,
+.creative-expanded-frame[data-bg-mode='dark-gray'] .creative-expanded-caption-title,
+.creative-expanded-frame[data-bg-mode='black'] .creative-expanded-caption-title {
+  color: rgba(255, 255, 255, 0.96);
+}
+.creative-expanded-frame[data-bg-mode='gray'] .creative-expanded-caption-meta,
+.creative-expanded-frame[data-bg-mode='dark-gray'] .creative-expanded-caption-meta,
+.creative-expanded-frame[data-bg-mode='black'] .creative-expanded-caption-meta {
+  color: rgba(255, 255, 255, 0.70);
+}
+
+/* Blur mode: stay on the theme-aware defaults — the wall is the
+   photo's own mood, so --creative-text (which tracks light/dark)
+   reads correctly on both dark Mist and light Cream themes. */
 
 /* -------------------------------------------------------
    Return overlay — hero mirror for back swipe

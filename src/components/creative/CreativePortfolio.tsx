@@ -96,7 +96,13 @@ export default function CreativePortfolio({ photos, tracks }: Props) {
       data-theme={theme}
     >
       {leaving && <CreativeReturnOverlay />}
-      <CreativeLeftPill onBack={handleBack} theme={theme} onToggleTheme={handleToggleTheme} />
+      <CreativeLeftPill
+        onBack={handleBack}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
+        showGallery={view === 'expanded'}
+        onGallery={handleClosePhoto}
+      />
 
       <main className="creative-main">
         <div className="creative-stage">

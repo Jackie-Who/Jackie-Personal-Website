@@ -4,19 +4,24 @@ interface Props {
   onBack: () => void;
   theme: CreativeTheme;
   onToggleTheme: () => void;
+  /** Whether the viewer is inside the expanded photo view.
+   *  Controls whether the gallery-return button renders. */
+  showGallery?: boolean;
+  onGallery?: () => void;
 }
 
 /**
- * Two floating glass buttons in the top-left corner of the creative
- * page — back pill and theme-toggle pill, rendered side-by-side but
- * separate. Sized to match the /tech page's back button for
- * cross-portfolio consistency.
+ * Floating glass buttons in the top-left corner of the creative
+ * page — back pill, theme-toggle pill, and (only when expanded)
+ * a gallery-return pill. Rendered side-by-side but as separate
+ * buttons so each has its own hover/focus target. Sized to match
+ * the /tech page's back button for cross-portfolio consistency.
  *
  * The gallery column has no header above it — these pills float
  * over it. The music column has its own in-flow header
  * (.creative-music-header).
  */
-export default function CreativeLeftPill({ onBack, theme, onToggleTheme }: Props) {
+export default function CreativeLeftPill({ onBack, theme, onToggleTheme, showGallery, onGallery }: Props) {
   return (
     <div className="creative-left-pill-cluster" role="group" aria-label="Portfolio navigation">
       <button
@@ -61,6 +66,34 @@ export default function CreativeLeftPill({ onBack, theme, onToggleTheme }: Props
           </svg>
         )}
       </button>
+
+      {showGallery && onGallery ? (
+        /* Gallery-return pill — only rendered while the viewer is in
+           expanded photo view. Uses the same glass chrome as the
+           theme toggle so the trio reads as one cluster. 3×3 grid
+           icon = "back to the gallery tiles". */
+        <button
+          type="button"
+          className="creative-theme-toggle"
+          onClick={onGallery}
+          aria-label="Back to gallery"
+          title="Back to gallery"
+        >
+          <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true">
+            <g fill="currentColor">
+              <rect x="2.5" y="2.5" width="4" height="4" rx="0.8" />
+              <rect x="8" y="2.5" width="4" height="4" rx="0.8" />
+              <rect x="13.5" y="2.5" width="4" height="4" rx="0.8" />
+              <rect x="2.5" y="8" width="4" height="4" rx="0.8" />
+              <rect x="8" y="8" width="4" height="4" rx="0.8" />
+              <rect x="13.5" y="8" width="4" height="4" rx="0.8" />
+              <rect x="2.5" y="13.5" width="4" height="4" rx="0.8" />
+              <rect x="8" y="13.5" width="4" height="4" rx="0.8" />
+              <rect x="13.5" y="13.5" width="4" height="4" rx="0.8" />
+            </g>
+          </svg>
+        </button>
+      ) : null}
     </div>
   );
 }

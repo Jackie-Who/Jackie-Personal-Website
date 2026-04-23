@@ -27,12 +27,28 @@ interface PhotoRow {
 // ------------------------------------------------------------
 // Blur data URL generator — used by both upload + backfill paths.
 //
-// Downsamples the image to ~32 px wide and encodes as JPEG q=0.55.
-// The downscale alone smooths high-freq detail; a small CSS-side
-// blur in creative.css cleans up whatever pixel boundaries the
-// browser's upscaling shows. End result: ~800 bytes base64, plenty
-// to evoke the photo's color mood without any live filter pass.
+// Downsamples the photo's longest edge to BLUR_MAX_DIM and encodes as
+// JPEG q=0.6 with high-quality smoothing. At viewer time, CSS upscales
+// this tiny bitmap to cover the viewport and applies a big blur filter
+// (radius tuned in creative.css) to smooth out pixel boundaries — the
+// net effect is a soft, photo-colored wash that reads as a BACKGROUND,
+// not a recognizable copy of the image.
+//
+// Why 64px and not smaller: at 32px, upscaling to a 1080p+ viewport
+// produces pixel blocks ~34px tall on screen, and you'd need a ~50+px
+// CSS blur to cover them. That's expensive and still ended up mosaic-y
+// (the previous implementation). 64px gives each source pixel ~17px
+// on a 1080p viewport, which a 40px CSS blur covers comfortably.
+// Net payload: still tiny (~2–3 KB base64), still cheap to store per
+// row in Turso.
 // ------------------------------------------------------------
+const BLUR_MAX_DIM = 64;
+/** Heuristic for "too-old-to-keep" blur data. The new 64-px base64
+ *  JPEG at q=0.6 lands around ~2,000 chars; the old 32-px q=0.55
+ *  format was ~800. Anything under 1,500 is the old version and the
+ *  backfill should regenerate it. */
+export const BLUR_MIN_CHARS = 1500;
+
 async function generateBlurDataUrl(source: File | string): Promise<string | null> {
   return new Promise((resolve) => {
     const cleanup: (() => void)[] = [];
@@ -45,19 +61,22 @@ async function generateBlurDataUrl(source: File | string): Promise<string | null
     img.onload = () => {
       try {
         const canvas = document.createElement('canvas');
-        const maxDim = 32;
         const ratio = img.naturalWidth / img.naturalHeight;
         if (ratio >= 1) {
-          canvas.width = maxDim;
-          canvas.height = Math.max(1, Math.round(maxDim / ratio));
+          canvas.width = BLUR_MAX_DIM;
+          canvas.height = Math.max(1, Math.round(BLUR_MAX_DIM / ratio));
         } else {
-          canvas.height = maxDim;
-          canvas.width = Math.max(1, Math.round(maxDim * ratio));
+          canvas.height = BLUR_MAX_DIM;
+          canvas.width = Math.max(1, Math.round(BLUR_MAX_DIM * ratio));
         }
         const ctx = canvas.getContext('2d');
         if (!ctx) { cleanup.forEach((fn) => fn()); resolve(null); return; }
+        // High-quality downscale — the browser's default nearest-ish
+        // filter leaves aliasing artifacts on a JPEG re-encode.
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.55);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
         cleanup.forEach((fn) => fn());
         resolve(dataUrl);
       } catch {
@@ -118,8 +137,15 @@ export default function PhotoManager() {
   // rest of the admin UI stays responsive.
   useEffect(() => {
     if (loading || photos.length === 0) return;
+    // "Needs a blur" = either no blur at all, OR an old-format blur
+    // from the previous 32-px generator (which mosaics when scaled).
+    // The length heuristic catches those without needing a schema
+    // version column.
     const needs = photos.filter(
-      (p) => !p.blur_data_url && p.public_url && !backfillTriedRef.current.has(p.id),
+      (p) =>
+        p.public_url &&
+        !backfillTriedRef.current.has(p.id) &&
+        (!p.blur_data_url || p.blur_data_url.length < BLUR_MIN_CHARS),
     );
     if (needs.length === 0) return;
     let cancelled = false;

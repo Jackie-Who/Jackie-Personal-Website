@@ -31,15 +31,24 @@ const DEFAULT_BG: BgMode = 'dark-gray';
 const STORAGE_KEY = 'creative-expanded-bg';
 
 /**
- * Scroll-snap photo viewer. Each photo occupies its own snap
- * section with EXIF tags below. Returns to the gallery via the
- * subtle X that lives in the top-right of each image (always
- * faintly visible, brightens on hover).
+ * Scroll-snap photo viewer. Each photo occupies its own snap section
+ * with an overlaid museum-style caption pill (bottom-left) and a
+ * wall-color control (bottom-right). Returns to the gallery via the
+ * subtle X on the image OR the 3×3-grid button up in the left pill
+ * cluster (handled by CreativePortfolio → CreativeLeftPill).
  *
- * The wall color surrounding the image is controllable — viewers
+ * The wall color surrounding each image is controllable — viewers
  * can swap between five Lightroom-style neutrals or "From image",
- * which paints a heavily-blurred copy of the photo as the wall.
- * Choice persists to localStorage so it carries between sessions.
+ * which paints a pre-baked, pre-blurred copy of the current photo
+ * as the wall. Choice persists to localStorage.
+ *
+ * The scroll container wraps around: scrolling past the last image
+ * lands on the first, and scrolling above the first lands on the
+ * last. Implemented by bookending the section list with cloned
+ * copies of the first and last photos and swapping scrollTop to the
+ * real counterpart the instant the browser snaps to a clone. Since
+ * clones are identical bitmaps to their targets, the user sees a
+ * single continuous scroll with no visual seam.
  */
 export default function PhotoExpanded({ photos, startId, onClose }: Props) {
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -67,19 +76,75 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
     }
   }, [bgMode]);
 
-  // Scroll to the photo that was clicked in the gallery
+  // Initial scroll + wrap-around scroll handler, combined in one
+  // effect so the order is deterministic (set initial position
+  // BEFORE the wrap listener arms — otherwise mount fires a scroll
+  // event at scrollTop = 0 which would trigger an unwanted wrap to
+  // the real last section).
   useEffect(() => {
-    if (!startId) return;
     const root = rootRef.current;
-    if (!root) return;
-    const target = root.querySelector<HTMLElement>(`[data-photo-id='${CSS.escape(startId)}']`);
-    target?.scrollIntoView({ behavior: 'auto', block: 'start' });
-  }, [startId]);
+    if (!root || photos.length === 0) return;
+
+    // Land on the photo the viewer clicked (or the first real section
+    // if no startId). data-clone='none' disambiguates real sections
+    // from the clone-last / clone-first bookends.
+    const target = startId
+      ? root.querySelector<HTMLElement>(
+          `[data-clone='none'][data-photo-id='${CSS.escape(startId)}']`,
+        )
+      : root.querySelector<HTMLElement>(`[data-clone='none']`);
+    if (target) target.scrollIntoView({ behavior: 'auto', block: 'start' });
+
+    // Wrap-around only meaningful with more than one photo.
+    if (photos.length <= 1) return;
+
+    let rafId: number | null = null;
+    let wrapping = false;
+    // A short grace window after mount so the initial scrollTo doesn't
+    // immediately trip the wrap detector.
+    let armed = false;
+    const armTimer = window.setTimeout(() => { armed = true; }, 120);
+
+    const handleScroll = () => {
+      if (!armed || wrapping || rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        const h = root.clientHeight;
+        if (h === 0) return;
+        // Mandatory scroll-snap locks scrollTop to integer multiples
+        // of h once the user lets go, so a simple round() picks the
+        // current section's index without ambiguity.
+        const index = Math.round(root.scrollTop / h);
+        if (index === 0) {
+          // Landed on clone-last (before the real first). Jump to
+          // the real last (position photos.length in the bookended
+          // list). Visually identical bytes → no seam.
+          wrapping = true;
+          root.scrollTo({ top: photos.length * h, behavior: 'auto' });
+          window.setTimeout(() => { wrapping = false; }, 80);
+        } else if (index === photos.length + 1) {
+          // Landed on clone-first (after the real last). Jump to
+          // the real first at position 1.
+          wrapping = true;
+          root.scrollTo({ top: h, behavior: 'auto' });
+          window.setTimeout(() => { wrapping = false; }, 80);
+        }
+      });
+    };
+    root.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.clearTimeout(armTimer);
+      root.removeEventListener('scroll', handleScroll);
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
+    };
+  }, [photos.length, startId]);
 
   // Track which photo is currently in view so the "blur" bg can
-  // mirror the photo the viewer is looking at. Uses
+  // mirror whichever photo the viewer is looking at. Uses
   // IntersectionObserver on each section — the most-visible one
-  // wins. Falls back gracefully if no observer (older browsers).
+  // wins. Clones carry the same data-photo-id as their target so
+  // intersecting with a clone correctly updates the active photo
+  // (and the blur wall) to match.
   useEffect(() => {
     const root = rootRef.current;
     if (!root || typeof IntersectionObserver === 'undefined') return;
@@ -103,7 +168,7 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
     const sections = root.querySelectorAll<HTMLElement>('[data-photo-id]');
     sections.forEach((s) => observer.observe(s));
     return () => observer.disconnect();
-  }, []);
+  }, [photos.length]);
 
   // Esc to close
   useEffect(() => {
@@ -117,75 +182,95 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
   const activePhoto = photos.find((p) => p.id === activeId) ?? photos[0];
   const wallStyle = resolveWallStyle(bgMode, activePhoto);
 
+  // Bookend the list with cloned copies of the last and first photos
+  // so the wrap-around scroll handler has somewhere to "arrive" at
+  // each boundary. Each bookend renders the SAME image/caption as its
+  // target — the handler then swaps scrollTop to the real section in
+  // the same paint frame, so the user never sees a duplicate.
+  interface RenderEntry { photo: Photo; clone: 'none' | 'first' | 'last'; key: string; }
+  const renderList: RenderEntry[] =
+    photos.length === 0
+      ? []
+      : photos.length === 1
+        ? [{ photo: photos[0], clone: 'none', key: photos[0].id }]
+        : [
+            { photo: photos[photos.length - 1], clone: 'last', key: `clone-last-${photos[photos.length - 1].id}` },
+            ...photos.map<RenderEntry>((p) => ({ photo: p, clone: 'none', key: p.id })),
+            { photo: photos[0], clone: 'first', key: `clone-first-${photos[0].id}` },
+          ];
+
   return (
-    <div className="creative-expanded-frame">
     <div
-      ref={rootRef}
-      className="creative-expanded no-scrollbar"
+      className="creative-expanded-frame"
       data-bg-mode={bgMode}
       style={wallStyle}
     >
-      {photos.map((p) => (
-        <section
-          key={p.id}
-          data-photo-id={p.id}
-          className="creative-expanded-section"
-        >
-          <figure className="creative-expanded-frame-figure">
-            <div
-              className="creative-expanded-image"
-              style={!p.url ? { background: p.placeholder } : undefined}
-            >
-              {p.url ? (
-                <img
-                  src={p.url}
-                  alt={p.title}
-                  className="creative-expanded-img"
-                  decoding="async"
-                />
-              ) : null}
-              <button
-                type="button"
-                className="creative-expanded-close"
-                onClick={onClose}
-                aria-label="Return to gallery"
+      <div
+        ref={rootRef}
+        className="creative-expanded no-scrollbar"
+      >
+        {renderList.map((item) => (
+          <section
+            key={item.key}
+            data-photo-id={item.photo.id}
+            data-clone={item.clone}
+            className="creative-expanded-section"
+          >
+            <figure className="creative-expanded-frame-figure">
+              <div
+                className="creative-expanded-image"
+                style={!item.photo.url ? { background: item.photo.placeholder } : undefined}
               >
-                <svg viewBox="0 0 16 16" aria-hidden="true">
-                  <path
-                    d="M4 4l8 8M12 4l-8 8"
-                    stroke="currentColor"
-                    strokeWidth="1.25"
-                    strokeLinecap="round"
+                {item.photo.url ? (
+                  <img
+                    src={item.photo.url}
+                    alt={item.photo.title}
+                    className="creative-expanded-img"
+                    decoding="async"
                   />
-                </svg>
-              </button>
-            </div>
-          </figure>
+                ) : null}
+                <button
+                  type="button"
+                  className="creative-expanded-close"
+                  onClick={onClose}
+                  aria-label="Return to gallery"
+                >
+                  <svg viewBox="0 0 16 16" aria-hidden="true">
+                    <path
+                      d="M4 4l8 8M12 4l-8 8"
+                      stroke="currentColor"
+                      strokeWidth="1.25"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </figure>
 
-          {/* Museum-style wall label — sits on the page background
-              (NOT overlaid on the image) in the bottom-right of the
-              section. Glass chrome pulls from the creative-palette
-              CSS vars so it reads correctly in both dark Mist and
-              light Cream modes. */}
-          <figcaption className="creative-expanded-caption">
-            <span className="creative-expanded-caption-title">{p.title}</span>
-            <span className="creative-expanded-caption-meta">
-              <span>{p.aperture}</span>
-              <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
-              <span>{p.shutter}</span>
-              <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
-              <span>{p.iso}</span>
-              {p.year ? (
-                <>
-                  <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
-                  <span>{p.year}</span>
-                </>
-              ) : null}
-            </span>
-          </figcaption>
-        </section>
-      ))}
-    </div>
+            {/* Museum-style wall label — glass pill anchored bottom-
+                LEFT of the section (background, not overlaid on the
+                image). Text + glass colors adapt to the wall-color
+                preset via [data-bg-mode] selectors in creative.css,
+                so it stays readable on any chosen background. */}
+            <figcaption className="creative-expanded-caption">
+              <span className="creative-expanded-caption-title">{item.photo.title}</span>
+              <span className="creative-expanded-caption-meta">
+                <span>{item.photo.aperture}</span>
+                <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
+                <span>{item.photo.shutter}</span>
+                <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
+                <span>{item.photo.iso}</span>
+                {item.photo.year ? (
+                  <>
+                    <span aria-hidden="true" className="creative-expanded-caption-dot">·</span>
+                    <span>{item.photo.year}</span>
+                  </>
+                ) : null}
+              </span>
+            </figcaption>
+          </section>
+        ))}
+      </div>
 
       <div
         className="creative-expanded-bg-ctrl"
@@ -236,22 +321,27 @@ function resolveWallStyle(mode: BgMode, photo: Photo | undefined): React.CSSProp
   if (mode === 'blur') {
     if (!photo) return {};
     // Priority order for the "from image" wall:
-    //   1. `blurDataUrl` — a 32px pre-blurred JPEG baked at upload.
-    //      Painted with a very light CSS blur to smooth pixel edges.
-    //      This is the path that avoids the shimmer artifact; the
-    //      backdrop is static, nothing to re-sample on neighbor
-    //      hover.
-    //   2. `url` — fall back to the full-res photo for any row
-    //      that hasn't been backfilled yet (runs through the old
-    //      60 px CSS blur). Still usable; will shimmer like before.
+    //   1. `blurDataUrl` — a 64-px pre-baked JPEG painted under a 40
+    //      px CSS blur. Static bitmap = no shimmer when neighboring
+    //      backdrop-filter pills hover. This is the primary path.
+    //   2. `url` — legacy fallback to the full-res photo, run
+    //      through an 80-px live blur. Works but shimmers.
     //   3. `placeholder` gradient — static data with no bytes.
     let wall: string;
-    if (photo.blurDataUrl) wall = `url("${photo.blurDataUrl}")`;
-    else if (photo.url) wall = `url("${photo.url}")`;
-    else wall = photo.placeholder;
+    let blurRadius: string;
+    if (photo.blurDataUrl) {
+      wall = `url("${photo.blurDataUrl}")`;
+      blurRadius = '40px';
+    } else if (photo.url) {
+      wall = `url("${photo.url}")`;
+      blurRadius = '80px';
+    } else {
+      wall = photo.placeholder;
+      blurRadius = '60px';
+    }
     return {
       ['--creative-wall-image' as unknown as string]: wall,
-      ['--creative-wall-blur-radius' as unknown as string]: photo.blurDataUrl ? '6px' : '60px',
+      ['--creative-wall-blur-radius' as unknown as string]: blurRadius,
     } as React.CSSProperties;
   }
   const preset = BG_PRESETS.find((p) => p.id === mode);
