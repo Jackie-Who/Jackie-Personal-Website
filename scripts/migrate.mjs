@@ -95,11 +95,32 @@ for (const f of files) {
     .filter((s) => s.length > 0);
 
   process.stdout.write(`→ ${f}  (${statements.length} stmt${statements.length === 1 ? '' : 's'})  `);
+  let applied = 0;
+  let skipped = 0;
   try {
     for (const stmt of statements) {
-      await client.execute(stmt);
+      try {
+        await client.execute(stmt);
+        applied += 1;
+      } catch (err) {
+        // Treat "column / table already exists" as a re-run of a
+        // previously-applied migration and move on. Anything else
+        // is a real failure — bubble up.
+        const msg = (err?.message ?? String(err)).toLowerCase();
+        const isAlreadyExists =
+          msg.includes('already exists') ||
+          msg.includes('duplicate column') ||
+          /^.*duplicate.*name/i.test(msg);
+        if (isAlreadyExists) {
+          skipped += 1;
+          continue;
+        }
+        throw err;
+      }
     }
-    console.log('ok');
+    if (applied === 0 && skipped > 0) console.log('already applied');
+    else if (skipped > 0) console.log(`ok (applied ${applied}, skipped ${skipped})`);
+    else console.log('ok');
   } catch (err) {
     console.log('fail');
     console.error('    ', err?.message ?? err);
