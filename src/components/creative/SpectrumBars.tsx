@@ -66,15 +66,24 @@ export default function SpectrumBars({ playing, count = 24, analyser }: Props) {
       const tick = () => {
         analyser.getByteFrequencyData(dataRef.current!);
         const data = dataRef.current!;
-        // Log-ish bucketing (power 1.7) — bass bins are few but
-        // energy-dense, treble bins are many but quieter. The
-        // exponent widens the middle bars visually so the spectrum
-        // feels balanced instead of bass-dominated.
+        // Skip bin 0 (DC / sub-audible) — it adds nothing musical
+        // and can spike whenever the track starts or stops.
+        const BIN_OFFSET = 1;
+        const usableBins = bins - BIN_OFFSET;
+        // Log-ish bucketing (power 1.5) + a linear TILT across bars
+        // to counter bass dominance. Real music concentrates energy
+        // in the low end; an unweighted spectrum reads left-hugged
+        // and lopsided. Tilt attenuates bass bars (~0.65×) and
+        // boosts treble (~1.75×) so the visual center of mass sits
+        // around the middle and the whole spectrum feels alive.
         const newHeights = Array.from({ length: count }, (_, i) => {
           const tStart = i / count;
           const tEnd = (i + 1) / count;
-          const startBin = Math.floor(Math.pow(tStart, 1.7) * bins);
-          const endBin = Math.max(startBin + 1, Math.ceil(Math.pow(tEnd, 1.7) * bins));
+          const startBin = BIN_OFFSET + Math.floor(Math.pow(tStart, 1.5) * usableBins);
+          const endBin = Math.max(
+            startBin + 1,
+            BIN_OFFSET + Math.ceil(Math.pow(tEnd, 1.5) * usableBins),
+          );
           let sum = 0;
           let cnt = 0;
           for (let j = startBin; j < endBin && j < bins; j++) {
@@ -82,11 +91,12 @@ export default function SpectrumBars({ playing, count = 24, analyser }: Props) {
             cnt++;
           }
           const avg = cnt > 0 ? sum / cnt : 0;
-          // Normalize against ~200 rather than 255 (music rarely
-          // pegs a single bin), then apply a gentle curve so quiet
-          // passages don't collapse into the floor.
-          const scaled = Math.pow(avg / 200, 1.1);
-          return Math.max(0.12, Math.min(1, scaled));
+          const tilt = 0.65 + 1.1 * (i / Math.max(1, count - 1));
+          // Normalize against ~200 (music rarely pegs 255), apply
+          // tilt, then a gentle curve so quiet passages don't
+          // collapse into the floor.
+          const magnitude = (avg / 200) * tilt;
+          return Math.max(0.12, Math.min(1, Math.pow(magnitude, 1.05)));
         });
         setHeights(newHeights);
         rafRef.current = window.requestAnimationFrame(tick);

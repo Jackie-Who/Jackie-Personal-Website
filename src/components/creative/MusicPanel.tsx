@@ -199,6 +199,22 @@ export default function MusicPanel({ tracks, initialTrackId, size, onSizeChange 
           )}
         </div>
 
+        {/* Volume sits above the play button in compact mode so the
+            single-button chrome stays centered. In expanded mode it
+            tucks into the footer's bottom-right corner via the
+            position-absolute wrapper below, keeping the controls
+            row balanced around the play button. */}
+        {!expanded && (
+          <div className="creative-music-compact-volume">
+            <VolumeControl
+              volume={player.volume}
+              muted={player.muted}
+              onVolumeChange={player.setVolume}
+              onToggleMute={player.toggleMute}
+            />
+          </div>
+        )}
+
         <div className="creative-music-controls">
           {expanded && (
             <button
@@ -243,23 +259,21 @@ export default function MusicPanel({ tracks, initialTrackId, size, onSizeChange 
               </svg>
             </button>
           )}
+        </div>
 
-          {/* Volume pill — click toggles mute, hover reveals a popup
-              horizontal slider anchored above the button. Only in
-              expanded mode; compact mode hides it to preserve the
-              play-button-only minimal chrome. */}
-          {expanded && (
+        {/* Expanded-mode volume — absolutely positioned in the footer
+            so the controls row above stays [prev][play][next]
+            centered without it influencing the flex layout. */}
+        {expanded && (
+          <div className="creative-music-expanded-volume">
             <VolumeControl
               volume={player.volume}
               muted={player.muted}
               onVolumeChange={player.setVolume}
               onToggleMute={player.toggleMute}
             />
-          )}
-          {/* Collapse/expand moved out to the header bar (see
-              CreativeTopNav). The drag handle on the inner edge is
-              still here for resize-by-drag. */}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Drag handle on the left (inner) edge — pulls open toward the gallery */}
