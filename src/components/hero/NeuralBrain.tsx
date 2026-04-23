@@ -42,9 +42,20 @@ interface Props {
 // ------------------------------------------------------------
 const DESKTOP_NODES_PER_HEMI = 60;
 const MOBILE_NODES_PER_HEMI = 28;
+/** Extra nodes per hemisphere that ONLY appear when that side is
+ *  active. Visually evolves the network from "base brain" → "engaged
+ *  brain" — the densification is the brain "thinking harder". */
+const DESKTOP_EXTRA_PER_HEMI = 26;
+const MOBILE_EXTRA_PER_HEMI = 12;
 const NEIGHBOR_COUNT = 4;
+/** Extras connect to MORE neighbors than base nodes — when they fade
+ *  in, the wireframe visibly densifies in the active hemisphere. */
+const EXTRA_NEIGHBOR_COUNT = 6;
 /** Fraction of canvas width used as the max neighbor distance. */
 const NEIGHBOR_MAX_DIST_FRAC = 0.35;
+/** Extras get a slightly wider reach so connections cross the lobe
+ *  clusters into the base wireframe. */
+const EXTRA_NEIGHBOR_DIST_FRAC = 0.42;
 const CROSS_HEMI_EDGES = 10;
 const REPULSION_RADIUS = 80;
 const REPULSION_FORCE = 0.55;
@@ -60,8 +71,17 @@ const CHAIN_CHANCE = 0.4;
 const COLOR_LERP = 0.05;
 const BURST_COUNT = 30;
 const TAKEOVER_SIGNAL_COUNT = 4;
-// Thinking-element spawn rate while a hemisphere is active.
-const THOUGHT_INTERVAL_MS = 170;
+/** Lerp factor for fading extras in / out as their hemi activates. */
+const EXTRA_VIS_LERP = 0.05;
+/** Ambient thinking-element spawn rate while a hemisphere is active.
+ *  Lower than the cursor-reactive rate below — ambient flow is
+ *  background atmosphere; cursor-reactive is the loud "you touched
+ *  something" feedback. */
+const THOUGHT_INTERVAL_MS = 420;
+/** Spawn-rate for cursor-area thoughts (popping out where the
+ *  pointer is interacting with the wireframe). Faster than ambient
+ *  so the response feels direct. */
+const CURSOR_THOUGHT_INTERVAL_MS = 180;
 
 // Palette. RGB only — alpha is computed per-node / per-edge.
 const COLOR_NEUTRAL = { r: 168, g: 180, b: 194 }; // silver
@@ -108,6 +128,10 @@ interface Node {
   /** Indices of connected neighbor nodes. Edges are rendered each
    *  frame; no separate edges array. */
   neighbors: number[];
+  /** True for nodes that only become visible when their hemisphere
+   *  is active — fades in / out via the per-hemi extra-vis lerp.
+   *  False for the always-visible base wireframe. */
+  extra: boolean;
   /** Firing intensity 0..1, decays ~25 frames. */
   firing: number;
   /** Current color (lerped toward target each frame). Keeping these
@@ -208,6 +232,7 @@ export default function NeuralBrain({ takeover, nav }: Props) {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const isMobile = window.matchMedia('(max-width: 720px)').matches;
     const nodesPerHemi = isMobile ? MOBILE_NODES_PER_HEMI : DESKTOP_NODES_PER_HEMI;
+    const extrasPerHemi = isMobile ? MOBILE_EXTRA_PER_HEMI : DESKTOP_EXTRA_PER_HEMI;
 
     let W = 0;
     let H = 0;
@@ -226,6 +251,15 @@ export default function NeuralBrain({ takeover, nav }: Props) {
     let thoughts: Thought[] = [];
     let lastFireAt = 0;
     let lastThoughtAt = 0;
+    let lastCursorThoughtAt = 0;
+
+    // Per-hemisphere extra-node visibility (0..1) — lerped each
+    // frame toward the target dictated by the current takeover.
+    // When the visibility hits 1, that hemisphere's "evolved"
+    // network is fully in; at 0 the brain shows only its base
+    // wireframe. The fade smooths the transition either way.
+    let leftExtraVis = 0;
+    let rightExtraVis = 0;
 
     let prevTakeover: Takeover = takeoverRef.current;
     let prevNav: NavState = navRef.current;
@@ -257,10 +291,11 @@ export default function NeuralBrain({ takeover, nav }: Props) {
         { x: W * 0.5 + W * 0.2, y: H * 0.5, hemi: 'right' as const },
       ];
 
+      // ----- Base nodes (always visible) -----
+      // Uniform-area sampling across the hemisphere ellipse. These
+      // form the resting "neutral brain" wireframe.
       for (const center of centers) {
         for (let i = 0; i < nodesPerHemi; i++) {
-          // Uniform sampling inside an ellipse: sqrt(rand) for radius
-          // keeps the density even across the area.
           const theta = Math.random() * Math.PI * 2;
           const r = Math.sqrt(Math.random());
           const dx = r * ellipseRx * Math.cos(theta);
@@ -278,6 +313,7 @@ export default function NeuralBrain({ takeover, nav }: Props) {
             vy: 0,
             hemi: center.hemi,
             neighbors: [],
+            extra: false,
             firing: 0,
             r: COLOR_NEUTRAL.r,
             g: COLOR_NEUTRAL.g,
@@ -287,38 +323,97 @@ export default function NeuralBrain({ takeover, nav }: Props) {
         }
       }
 
-      // Intra-hemisphere edges: each node connects to its N nearest
-      // neighbors within the distance threshold. Duplicates across
-      // nodes are fine — the edge-draw loop dedupes by index order.
-      const maxDist = W * NEIGHBOR_MAX_DIST_FRAC;
+      // ----- Extra "evolved" nodes (only visible when active) -----
+      // Distributed in TWO LOBE clusters per hemisphere (upper +
+      // lower) rather than uniformly. The deliberate clustering is
+      // what makes the active network look topologically DIFFERENT
+      // from the base wireframe — not just denser, but structured.
+      // Reads as the brain "developing additional regions" when the
+      // viewer engages a side.
+      for (const center of centers) {
+        const lobes = [
+          { x: center.x + ellipseRx * 0.05, y: center.y - ellipseRy * 0.32, rx: ellipseRx * 0.55, ry: ellipseRy * 0.32 },
+          { x: center.x - ellipseRx * 0.05, y: center.y + ellipseRy * 0.32, rx: ellipseRx * 0.55, ry: ellipseRy * 0.32 },
+        ];
+        const perLobe = Math.ceil(extrasPerHemi / lobes.length);
+        for (const lobe of lobes) {
+          for (let i = 0; i < perLobe; i++) {
+            const theta = Math.random() * Math.PI * 2;
+            // Tighter clustering than base — pow(rand, 0.7) biases
+            // toward the lobe edge; we want concentration without
+            // perfect uniformity.
+            const r = Math.pow(Math.random(), 0.7);
+            const dx = r * lobe.rx * Math.cos(theta);
+            const dy = r * lobe.ry * Math.sin(theta);
+            const rx = lobe.x + dx;
+            const ry = lobe.y + dy;
+            nodes.push({
+              rx,
+              ry,
+              z: (Math.random() - 0.5) * 2,
+              phase: Math.random() * Math.PI * 2,
+              cx: rx,
+              cy: ry,
+              vx: 0,
+              vy: 0,
+              hemi: center.hemi,
+              neighbors: [],
+              extra: true,
+              firing: 0,
+              r: COLOR_NEUTRAL.r,
+              g: COLOR_NEUTRAL.g,
+              b: COLOR_NEUTRAL.b,
+              a: 0.38,
+            });
+          }
+        }
+      }
+
+      // Intra-hemisphere edges. Two regimes:
+      //   - Base nodes connect ONLY to other base nodes within the
+      //     standard radius (preserves the resting wireframe).
+      //   - Extras connect to MORE neighbors (6 vs. 4) over a wider
+      //     radius — and they reach into the base layer. So when
+      //     extras fade in, the active hemisphere visibly grows new
+      //     bridges into the base structure rather than appearing
+      //     as a separate detached cluster.
       for (let i = 0; i < nodes.length; i++) {
         const a = nodes[i];
+        const neighborCount = a.extra ? EXTRA_NEIGHBOR_COUNT : NEIGHBOR_COUNT;
+        const maxDist = a.extra
+          ? W * EXTRA_NEIGHBOR_DIST_FRAC
+          : W * NEIGHBOR_MAX_DIST_FRAC;
         const candidates: { idx: number; d: number }[] = [];
         for (let j = 0; j < nodes.length; j++) {
           if (i === j) continue;
           const b = nodes[j];
           if (b.hemi !== a.hemi) continue;
+          // Base nodes ignore extras — keeps the resting topology
+          // identical to before. Extras are free to pick up either.
+          if (!a.extra && b.extra) continue;
           const dx = b.rx - a.rx;
           const dy = b.ry - a.ry;
           const d = Math.hypot(dx, dy);
           if (d <= maxDist) candidates.push({ idx: j, d });
         }
         candidates.sort((p, q) => p.d - q.d);
-        a.neighbors = candidates.slice(0, NEIGHBOR_COUNT).map((c) => c.idx);
+        a.neighbors = candidates.slice(0, neighborCount).map((c) => c.idx);
       }
 
-      // Corpus-callosum edges: bridge the two hemispheres at nodes
-      // closest to the vertical midline. These are the edges that
-      // takeover-signal pulses traverse.
+      // Corpus-callosum edges: bridge the two hemispheres at BASE
+      // nodes closest to the vertical midline. Restricted to base
+      // nodes so the cross-hemisphere signal pulses (used for the
+      // takeover-flow burst) always have a stable, always-visible
+      // path — they wouldn't if the bridge nodes could fade out.
       const midX = W * 0.5;
       const leftIndexed = nodes
         .map((n, idx) => ({ n, idx }))
-        .filter((x) => x.n.hemi === 'left')
+        .filter((x) => x.n.hemi === 'left' && !x.n.extra)
         .sort((a, b) => Math.abs(a.n.rx - midX) - Math.abs(b.n.rx - midX))
         .slice(0, CROSS_HEMI_EDGES);
       const rightIndexed = nodes
         .map((n, idx) => ({ n, idx }))
-        .filter((x) => x.n.hemi === 'right')
+        .filter((x) => x.n.hemi === 'right' && !x.n.extra)
         .sort((a, b) => Math.abs(a.n.rx - midX) - Math.abs(b.n.rx - midX))
         .slice(0, CROSS_HEMI_EDGES);
       const pairCount = Math.min(leftIndexed.length, rightIndexed.length);
@@ -373,59 +468,111 @@ export default function NeuralBrain({ takeover, nav }: Props) {
       }
     };
 
+    // Pick characteristic + color for a thought based on the
+    // currently active hemisphere — extracted because both ambient
+    // and cursor-reactive spawning use it. On neutral, randomly
+    // pick text or shape with the muted neutral palette so the
+    // cursor-reactive case still works (the ambient case bails on
+    // neutral, but cursor interaction still spawns).
+    const pickThoughtKindAndColor = (hemi: 'left' | 'right' | null): {
+      kind: 'text' | 'shape';
+      text?: string;
+      shape?: ShapeKind;
+      color: { r: number; g: number; b: number };
+    } => {
+      if (hemi === 'right') {
+        return {
+          kind: 'text',
+          text: TECH_CHARS[Math.floor(Math.random() * TECH_CHARS.length)],
+          color: TECH_PALETTE[Math.floor(Math.random() * TECH_PALETTE.length)],
+        };
+      }
+      if (hemi === 'left') {
+        return {
+          kind: 'shape',
+          shape: CREATIVE_SHAPES[Math.floor(Math.random() * CREATIVE_SHAPES.length)],
+          color: CREATIVE_PALETTE[Math.floor(Math.random() * CREATIVE_PALETTE.length)],
+        };
+      }
+      // Neutral — mix both kinds with the muted silver tint, so the
+      // cursor still elicits a soft response even before a side is
+      // committed to.
+      if (Math.random() < 0.5) {
+        return {
+          kind: 'text',
+          text: TECH_CHARS[Math.floor(Math.random() * TECH_CHARS.length)],
+          color: COLOR_NEUTRAL,
+        };
+      }
+      return {
+        kind: 'shape',
+        shape: CREATIVE_SHAPES[Math.floor(Math.random() * CREATIVE_SHAPES.length)],
+        color: COLOR_NEUTRAL,
+      };
+    };
+
+    // Cursor-reactive spawning — fires while the pointer is INSIDE
+    // the canvas bounds. The thought appears at the cursor with a
+    // small radial offset, drifting outward. Visually this reads as
+    // the brain "responding" to the touch wherever the viewer is
+    // poking at the wireframe.
+    const spawnCursorThought = () => {
+      const { kind, text, shape, color } = pickThoughtKindAndColor(activeHemi(takeoverRef.current));
+      const offsetTheta = Math.random() * Math.PI * 2;
+      const offsetR = 8 + Math.random() * 22;
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 0.5 + Math.random() * 0.7;
+      const decay = 1 / (90 + Math.random() * 50);
+      thoughts.push({
+        kind,
+        text,
+        shape,
+        x: mouseX + Math.cos(offsetTheta) * offsetR,
+        y: mouseY + Math.sin(offsetTheta) * offsetR,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 0.3,
+        rotation: kind === 'shape' ? Math.random() * Math.PI * 2 : 0,
+        vrot: kind === 'shape' ? (Math.random() - 0.5) * 0.05 : 0,
+        size: kind === 'text' ? 11 + Math.random() * 5 : 4 + Math.random() * 6,
+        color,
+        life: 1,
+        decay,
+      });
+    };
+
     const spawnThought = (hemi: 'left' | 'right') => {
-      // Anchor on a random node in the active hemisphere so the
-      // thinking elements visibly emanate from the brain rather
-      // than from a generic centroid.
-      const hemiNodes = nodes.filter((n) => n.hemi === hemi);
+      // Anchor on a random VISIBLE node in the active hemisphere.
+      // Skip extras while their hemi-vis is still ramping up so
+      // thoughts don't appear to spawn from invisible-but-soon-to-be
+      // nodes (which reads as "particles from nowhere"). Once the
+      // hemi-vis is past 0.4 the extras are visually present enough
+      // to anchor on.
+      const hemiVis = hemi === 'left' ? leftExtraVis : rightExtraVis;
+      const hemiNodes = nodes.filter(
+        (n) => n.hemi === hemi && (!n.extra || hemiVis > 0.4),
+      );
       if (hemiNodes.length === 0) return;
       const anchor = hemiNodes[Math.floor(Math.random() * hemiNodes.length)];
+      const { kind, text, shape, color } = pickThoughtKindAndColor(hemi);
       const angle = Math.random() * Math.PI * 2;
       const speed = 0.4 + Math.random() * 0.6;
-      // Slight upward bias — rising feels more alive than falling.
-      const vx = Math.cos(angle) * speed;
-      const vy = Math.sin(angle) * speed - 0.3;
       const decay = 1 / (110 + Math.random() * 70); // ~1.8–3.0 s at 60 fps
-
-      if (hemi === 'right') {
-        // Tech-side hemisphere — binary + code chars. Text doesn't
-        // rotate (it'd be illegible); it just drifts + fades.
-        const char = TECH_CHARS[Math.floor(Math.random() * TECH_CHARS.length)];
-        const color = TECH_PALETTE[Math.floor(Math.random() * TECH_PALETTE.length)];
-        thoughts.push({
-          kind: 'text',
-          text: char,
-          x: anchor.cx,
-          y: anchor.cy,
-          vx,
-          vy,
-          rotation: 0,
-          vrot: 0,
-          size: 11 + Math.random() * 5,
-          color,
-          life: 1,
-          decay,
-        });
-      } else {
-        // Creative-side hemisphere — colored shape primitives. Shapes
-        // rotate as they drift for a more chaotic/expressive feel.
-        const shape = CREATIVE_SHAPES[Math.floor(Math.random() * CREATIVE_SHAPES.length)];
-        const color = CREATIVE_PALETTE[Math.floor(Math.random() * CREATIVE_PALETTE.length)];
-        thoughts.push({
-          kind: 'shape',
-          shape,
-          x: anchor.cx,
-          y: anchor.cy,
-          vx,
-          vy,
-          rotation: Math.random() * Math.PI * 2,
-          vrot: (Math.random() - 0.5) * 0.05,
-          size: 4 + Math.random() * 6,
-          color,
-          life: 1,
-          decay,
-        });
-      }
+      thoughts.push({
+        kind,
+        text,
+        shape,
+        x: anchor.cx,
+        y: anchor.cy,
+        vx: Math.cos(angle) * speed,
+        // Slight upward bias — rising feels more alive than falling.
+        vy: Math.sin(angle) * speed - 0.3,
+        rotation: kind === 'shape' ? Math.random() * Math.PI * 2 : 0,
+        vrot: kind === 'shape' ? (Math.random() - 0.5) * 0.05 : 0,
+        size: kind === 'text' ? 11 + Math.random() * 5 : 4 + Math.random() * 6,
+        color,
+        life: 1,
+        decay,
+      });
     };
 
     const triggerBurst = (hemi: 'left' | 'right') => {
@@ -472,6 +619,16 @@ export default function NeuralBrain({ takeover, nav }: Props) {
       // ----- Parallax follow (smooth) -----
       parallaxX = lerp(parallaxX, parallaxTargetX, PARALLAX_LERP);
       parallaxY = lerp(parallaxY, parallaxTargetY, PARALLAX_LERP);
+
+      // ----- Extras visibility per hemisphere -----
+      // Target is 1 when this hemisphere is active, 0 otherwise.
+      // Smooth lerp gives the "evolving" fade; quicker than the
+      // color lerp so the network densification reads as
+      // intentional growth rather than a slow tint shift.
+      const leftTarget = currentTakeover === 'creative' ? 1 : 0;
+      const rightTarget = currentTakeover === 'tech' ? 1 : 0;
+      leftExtraVis = lerp(leftExtraVis, leftTarget, EXTRA_VIS_LERP);
+      rightExtraVis = lerp(rightExtraVis, rightTarget, EXTRA_VIS_LERP);
 
       // ----- Node physics + color tween -----
       for (let i = 0; i < nodes.length; i++) {
@@ -582,12 +739,26 @@ export default function NeuralBrain({ takeover, nav }: Props) {
       });
 
       // ----- "Thinking" particle spawn + physics -----
-      // Only while a hemisphere is active — on neutral, existing
-      // thoughts finish their fade but no new ones spawn.
+      // TWO sources:
+      //   1. Ambient: while a hemisphere is active, spawn from a
+      //      random active-hemi node every ~420 ms. Background
+      //      atmosphere — sparse on purpose so the cursor source
+      //      below has something to add.
+      //   2. Cursor-reactive: while the pointer is inside the
+      //      canvas bounds, spawn at the cursor every ~180 ms.
+      //      Fires regardless of takeover state so the brain
+      //      "responds" wherever the viewer is poking at it,
+      //      even on neutral.
       const activeForThought = activeHemi(currentTakeover);
       if (activeForThought && tNow - lastThoughtAt > THOUGHT_INTERVAL_MS) {
         lastThoughtAt = tNow;
         spawnThought(activeForThought);
+      }
+      const cursorInBounds =
+        mouseX > -9000 && mouseX >= 0 && mouseX < W && mouseY >= 0 && mouseY < H;
+      if (cursorInBounds && tNow - lastCursorThoughtAt > CURSOR_THOUGHT_INTERVAL_MS) {
+        lastCursorThoughtAt = tNow;
+        spawnCursorThought();
       }
       thoughts = thoughts.filter((t) => {
         t.x += t.vx;
@@ -619,11 +790,23 @@ export default function NeuralBrain({ takeover, nav }: Props) {
         y: n.cy + parallaxY * n.z,
       });
 
+      // Helper: how visible is this node right now? Base nodes are
+      // always 1. Extras follow their hemisphere's lerp toward
+      // active. Used to gate both node + edge alpha.
+      const visOf = (n: Node): number => {
+        if (!n.extra) return 1;
+        return n.hemi === 'left' ? leftExtraVis : rightExtraVis;
+      };
+
       // Edges under nodes — thinner + lower alpha than the nodes so
-      // they read as wiring, not fills.
+      // they read as wiring, not fills. Edge alpha is gated by the
+      // MIN of its endpoints' visibility — extras-to-base edges
+      // fade with the extras while base-to-base stays solid.
       ctx.lineWidth = 0.6;
       for (let i = 0; i < nodes.length; i++) {
         const a = nodes[i];
+        const aVis = visOf(a);
+        if (aVis < 0.02) continue;
         for (const nbIdx of a.neighbors) {
           // Dedupe each undirected edge: only render when neighbor
           // index is greater than ours (or the neighbor doesn't have
@@ -633,9 +816,12 @@ export default function NeuralBrain({ takeover, nav }: Props) {
             if (b.neighbors.indexOf(i) !== -1) continue;
           }
           const b = nodes[nbIdx];
+          const bVis = visOf(b);
+          const edgeVis = Math.min(aVis, bVis);
+          if (edgeVis < 0.02) continue;
           const pa = proj(a);
           const pb = proj(b);
-          const avgA = ((a.a + b.a) * 0.5) * 0.42;
+          const avgA = ((a.a + b.a) * 0.5) * 0.42 * edgeVis;
           const avgR = (a.r + b.r) * 0.5;
           const avgG = (a.g + b.g) * 0.5;
           const avgB = (a.b + b.b) * 0.5;
@@ -693,10 +879,16 @@ export default function NeuralBrain({ takeover, nav }: Props) {
       }
 
       // Nodes — size scales with z (closer = bigger) and firing boost.
+      // Extras' alpha is gated by their hemi's visibility lerp so
+      // they fade in / out smoothly as the active hemisphere
+      // engages or releases.
       for (const n of nodes) {
+        const nodeVis = visOf(n);
+        if (nodeVis < 0.02) continue;
         const p = proj(n);
         const size = 1.7 * (1 + n.z * 0.35) + n.firing * 2.6;
-        ctx.fillStyle = `rgba(${n.r | 0}, ${n.g | 0}, ${n.b | 0}, ${n.a})`;
+        const alpha = n.a * nodeVis;
+        ctx.fillStyle = `rgba(${n.r | 0}, ${n.g | 0}, ${n.b | 0}, ${alpha})`;
         ctx.beginPath();
         ctx.arc(p.x, p.y, Math.max(0.5, size), 0, Math.PI * 2);
         ctx.fill();

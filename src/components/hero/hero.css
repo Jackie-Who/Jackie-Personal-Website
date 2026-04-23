@@ -313,11 +313,19 @@
   font-style: normal;
 }
 
-/* Brighten the hint on takeover so the call-to-action pulls the
-   viewer toward the click once they've already committed to hovering. */
+/* On takeover, the hint PULSES. Pulse (vs. plain brighten) makes it
+   read as an active call-to-action — the viewer can tell something
+   is happening there and the side is interactable, not just
+   passively illuminated. 1.6 s cycle is slow enough to feel
+   intentional, fast enough to read as a signal. */
+@keyframes hero-hint-pulse {
+  0%, 100% { opacity: 0.35; }
+  50%      { opacity: 0.88; }
+}
+
 .hero-app[data-takeover='creative'] .hero-panel-creative .hero-panel-hint,
 .hero-app[data-takeover='tech'] .hero-panel-tech .hero-panel-hint {
-  opacity: 0.7;
+  animation: hero-hint-pulse 1.6s ease-in-out infinite;
 }
 
 /* ----------------------------------------------------------
@@ -420,27 +428,6 @@
 @keyframes hero-vbar {
   from { height: 4px; }
   to   { height: var(--h, 20px); }
-}
-
-.hero-creative-vid-play {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: rgba(200, 125, 186, 0.18);
-  border: 0.5px solid rgba(200, 125, 186, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.hero-creative-vid-play svg {
-  width: 16px;
-  height: 16px;
-  fill: rgba(200, 160, 184, 0.7);
 }
 
 .hero-creative-vid-time {
@@ -843,8 +830,15 @@
 
   .hero-creative-vid-scanline,
   .hero-creative-vid-bar,
-  .hero-code-cursor {
+  .hero-code-cursor,
+  .hero-panel-hint {
     animation: none !important;
+  }
+  /* Fall back to the old static brighten on takeover when motion
+     is reduced — still communicates the interactable state. */
+  .hero-app[data-takeover='creative'] .hero-panel-creative .hero-panel-hint,
+  .hero-app[data-takeover='tech'] .hero-panel-tech .hero-panel-hint {
+    opacity: 0.7 !important;
   }
 
   .hero-app[data-expanding] .hero-panel {

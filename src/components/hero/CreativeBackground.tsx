@@ -72,11 +72,6 @@ export default function CreativeBackground({ active }: Props) {
         <div className="hero-creative-vid-frame">
           <span className="hero-creative-vid-scanline" />
           <span className="hero-creative-vid-label">playing</span>
-          <div className="hero-creative-vid-play">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <polygon points="9,6 18,12 9,18" />
-            </svg>
-          </div>
           <span className="hero-creative-vid-time">{`${mm}:${ss}`}</span>
           <div className="hero-creative-vid-bars">
             {bars.map((b, i) => (
