@@ -85,20 +85,18 @@ console.log(`found ${files.length} migration file(s)\n`);
 for (const f of files) {
   const path = join(migrationsDir, f);
   const sql = readFileSync(path, 'utf8');
-  // Split on semicolons that end a statement. Crude but fine for the
-  // statements we ship — no procedural blocks or embedded `;` strings.
-  const statements = sql
+  // Strip `-- ...` line comments first, then split on semicolons
+  // that end a statement. Crude but fine for the statements we ship
+  // — no procedural blocks or embedded `;` strings.
+  const stripped = sql.replace(/--.*$/gm, '');
+  const statements = stripped
     .split(/;\s*(?:\r?\n|$)/)
     .map((s) => s.trim())
-    .filter((s) => s && !s.replace(/--.*$/gm, '').trim().startsWith('--') === false)
-    .filter((s) => s.length > 0 && !/^--/.test(s.replace(/\r?\n--.*$/gm, '').trim()));
+    .filter((s) => s.length > 0);
 
-  process.stdout.write(`→ ${f}  `);
+  process.stdout.write(`→ ${f}  (${statements.length} stmt${statements.length === 1 ? '' : 's'})  `);
   try {
     for (const stmt of statements) {
-      // Skip blocks that are pure comments.
-      const noComments = stmt.replace(/--.*$/gm, '').trim();
-      if (!noComments) continue;
       await client.execute(stmt);
     }
     console.log('ok');
