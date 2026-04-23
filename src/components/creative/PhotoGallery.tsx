@@ -7,16 +7,14 @@ interface Props {
 }
 
 /**
- * Photo grid — column-masonry so every tile renders at its true
- * aspect ratio (no 1:1 crop). Grouped by year.
+ * Photo grid — justified-rows layout. Every tile in a row shares
+ * the same height; each tile's width is derived from its photo's
+ * aspect ratio (wider for landscapes, narrower for portraits).
+ * Grouped by year.
  *
- * - Photos with a real `url` render as `<img>` inside the tile;
- *   the browser uses the image's natural dimensions. If we have a
- *   stored aspectRatio, the tile pre-reserves that aspect via CSS
- *   `aspect-ratio` so there's no layout shift when the image
- *   decodes.
- * - Photos without a `url` (static placeholders) render as a
- *   square gradient tile — the gradient fills the slot.
+ * Every tile must carry an explicit `aspect-ratio` so the row can
+ * reserve width before the image decodes — real photos use their
+ * stored aspectRatio, static placeholders fall back to 1:1 or 3:2.
  */
 export default function PhotoGallery({ photos, onOpen }: Props) {
   const groups = useMemo(() => buildYearGroups(photos), [photos]);
@@ -67,16 +65,16 @@ export default function PhotoGallery({ photos, onOpen }: Props) {
   );
 }
 
-function aspectStyle(p: Photo): React.CSSProperties | undefined {
-  // Reserve layout space so column-masonry has a height before the
-  // image decodes. Real images with a known ratio → use it exactly.
-  // Gradient placeholders default to a 1:1 square so they fill a
-  // recognizable slot.
-  if (p.aspectRatio && Number.isFinite(p.aspectRatio) && p.aspectRatio > 0) {
-    return { aspectRatio: String(p.aspectRatio) };
-  }
-  if (!p.url) return { aspectRatio: '1 / 1' };
-  return undefined;
+function aspectStyle(p: Photo): React.CSSProperties {
+  // Justified-rows layout needs an aspect-ratio on every tile so
+  // the row can compute width from the shared fixed height before
+  // the image decodes. Real images use their stored ratio; static
+  // placeholders fall back to 1:1 (no url) or 3:2 (has url but no
+  // stored ratio — pre-aspect-ratio-column rows).
+  const ratio = p.aspectRatio && Number.isFinite(p.aspectRatio) && p.aspectRatio > 0
+    ? p.aspectRatio
+    : !p.url ? 1 : 1.5;
+  return { aspectRatio: String(ratio) };
 }
 
 interface YearGroup {
