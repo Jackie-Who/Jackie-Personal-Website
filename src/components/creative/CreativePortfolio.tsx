@@ -57,27 +57,10 @@ export default function CreativePortfolio({ photos, tracks }: Props) {
     document.body.classList.toggle('creative-body-dark', theme === 'dark');
   }, [theme]);
 
-  // Hide the SSR-rendered loading screen now that React has mounted.
-  // The loader element lives in creative.astro's HTML (a sibling of
-  // <main>), painted from the moment the page lands — covering the
-  // entire JS-download / parse / hydrate window. Once we're here,
-  // React's tree is mounted and the gallery is ready to be revealed,
-  // so we add data-hide=true to start the 420 ms fade-out, then
-  // remove the element from the DOM after the transition completes
-  // so it can't intercept clicks or accumulate across navigations.
-  useEffect(() => {
-    const id1 = window.requestAnimationFrame(() => {
-      const id2 = window.requestAnimationFrame(() => {
-        const loader = document.getElementById('creative-loading-screen');
-        if (loader) {
-          loader.setAttribute('data-hide', 'true');
-          window.setTimeout(() => loader.remove(), 800);
-        }
-      });
-      return () => window.cancelAnimationFrame(id2);
-    });
-    return () => window.cancelAnimationFrame(id1);
-  }, []);
+  // SSR loader removed — nothing to hide here anymore. The hero's
+  // handoff loader (HeroSection.tsx) covers the hero → creative
+  // transition; direct URL visits accept a brief blank themed bg
+  // during React hydration.
 
 
   const handleOpenPhoto = useCallback((id: string) => {

@@ -84,7 +84,11 @@ const THOUGHT_INTERVAL_MS = 420;
 const CURSOR_THOUGHT_INTERVAL_MS = 180;
 
 // Palette. RGB only — alpha is computed per-node / per-edge.
-const COLOR_NEUTRAL = { r: 168, g: 180, b: 194 }; // silver
+// Neutral tone darkened so the wireframe reads clearly against the
+// near-white (#fafafa) center-panel backdrop — the previous silver
+// at rgba .38 was near-invisible on white. Keeping the alpha the
+// same and letting the darker RGB do the contrast work.
+const COLOR_NEUTRAL = { r: 95, g: 108, b: 128 }; // darker steel
 const COLOR_CREATIVE = { r: 199, g: 125, b: 186 }; // #c77dba hero pink
 const COLOR_TECH = { r: 90, g: 159, b: 212 };      // #5a9fd4 hero blue
 

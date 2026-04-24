@@ -88,7 +88,11 @@
 
 .hero-panel-center {
   flex: 0.236;
-  background: #fafafa;
+  /* Transparent so the full-width academic backdrop sitting behind
+     the panels layer shows through in this column. Side panels keep
+     their opaque bgs so the backdrop is masked there. The white look
+     of the center now comes from the backdrop's own #fafafa fill. */
+  background: transparent;
 }
 
 .hero-panel-tech {
@@ -576,21 +580,29 @@
 
 /* ----------------------------------------------------------
    Academic backdrop — research-paper-styled prose on hemispheric
-   lateralization, filling the center panel in neutral state EDGE
-   to EDGE. Reads as wallpaper / texture — the viewer registers
-   "dense academic page" at a glance rather than stopping to read.
-   Sits BEHIND the neural brain (z:1) and fades out on takeover.
+   lateralization filling the ENTIRE hero viewport edge-to-edge as
+   multi-column newspaper wallpaper. The side panels sit on top
+   with opaque bgs, masking their portions of the text. The center
+   panel is transparent, so ~2 columns of text show through in the
+   center column. The intent is that a viewer reads the text
+   structure as a continuous background page the side panels
+   happen to cover parts of — not a framed excerpt in the middle.
+
+   DOM-first placement (before .hero-panels) puts it at the back
+   of the stacking context without needing a negative z-index.
    ---------------------------------------------------------- */
 .hero-academic-backdrop {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 38.2%;
-  width: 23.6%;
-  z-index: 1;
-  /* No padding — text should hit panel borders. The goal is wall-
-     paper density, not a framed column. */
+  inset: 0;
   padding: 0;
+  background: #fafafa;
+  /* Multi-column layout — each column 160 px wide, browser chooses
+     the count to fill the viewport. `column-fill: auto` fills the
+     first column top-to-bottom before flowing to the next, which
+     gives the most natural newspaper feel. */
+  columns: 160px;
+  column-gap: 14px;
+  column-fill: auto;
   /* Cormorant for body, Cardo as backup — both serve the
      scholarly-journal aesthetic. Falls back to Georgia / serif. */
   font-family: 'Cormorant Garamond', 'Cardo', Georgia, serif;
@@ -599,10 +611,7 @@
   text-align: justify;
   hyphens: auto;
   -webkit-hyphens: auto;
-  /* Much lighter — ~0.2 alpha makes this read as a texture, not
-     as primary content. Dense enough to see the typographic shape
-     of a research paper, subtle enough not to compete with the
-     brain / signature / cat sitting in front of it. */
+  /* Light ink — reads as texture, not primary content. */
   color: rgba(40, 40, 50, 0.22);
   pointer-events: none;
   user-select: none;
@@ -930,7 +939,10 @@
   align-items: center;
   justify-content: center;
   margin: 12px 0 0;
-  color: #888;
+  /* Match .hero-signature's #1a1a1a so "a bit of everything..." and
+     "Jackie" read as the same ink in neutral state. On takeover the
+     rules below override with palette colors. */
+  color: #1a1a1a;
   transition: opacity 200ms ease, color 500ms ease;
   font-family: 'Inter', system-ui, sans-serif;
   opacity: 1;

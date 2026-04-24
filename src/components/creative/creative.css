@@ -45,94 +45,11 @@
   to   { transform: translateX(-100vw); opacity: 0; }
 }
 
-/* -------------------------------------------------------
-   Loading screen — SSR-rendered static HTML in creative.astro.
-   Paints from the moment the browser receives the page's first
-   bytes (no JS required), covering the entire window-fetch /
-   JS-download / parse / hydrate window. CreativePortfolio's
-   first useEffect after mount adds data-hide=true to fade it
-   out, then removes the element from the DOM once the fade
-   transition completes.
-   Colors are body-class-scoped (NOT theme-scoped via
-   .creative-app) because the loader exists OUTSIDE .creative-app
-   in the DOM tree — it's a sibling of <main>, not a descendant.
-   ------------------------------------------------------- */
-.creative-loading-screen {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
-  /* Default = dark Mist. .creative-body-light overrides below. */
-  background: #0d0f13;
-  color: #e8ecf4;
-  /* Visible by default — only hides once React signals ready. */
-  opacity: 1;
-  pointer-events: auto;
-  transition: opacity 420ms ease-out;
-}
-
-.creative-body-light .creative-loading-screen {
-  background: #f5eedf;
-  color: #1e2a38;
-}
-
-/* Once React mounts and toggles this attribute, fade out + drop
-   pointer events so the loader doesn't intercept clicks on the
-   way out. The element is removed from the DOM by JS shortly
-   after (see the setTimeout in CreativePortfolio's mount effect). */
-.creative-loading-screen[data-hide='true'] {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.creative-loading-screen-inner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 18px;
-  /* Map the cat-mark's --cat-* custom properties onto theme-aware
-     loader colors. Hardcoded by body class to match the rest of
-     the loader's palette. */
-  --cat-accent: #cfdeed;   /* dark sig */
-  --cat-eye: #e8ecf4;
-}
-.creative-body-light .creative-loading-screen-inner {
-  --cat-accent: #2a4d6f;   /* light sig */
-  --cat-eye: #1e2a38;
-}
-
-.creative-loading-screen-cat {
-  font-size: clamp(2.2rem, 4.5vw, 3.4rem);
-}
-
-.creative-loading-screen-signature {
-  font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
-  font-style: italic;
-  font-weight: 400;
-  font-size: clamp(1.6rem, 2.8vw, 2.4rem);
-  letter-spacing: 0.01em;
-  line-height: 1;
-  /* Default sig color = dark theme; light theme overrides below. */
-  color: #cfdeed;
-  animation: creative-loading-pulse 1.4s ease-in-out infinite alternate;
-}
-
-.creative-body-light .creative-loading-screen-signature {
-  color: #2a4d6f;
-}
-
-@keyframes creative-loading-pulse {
-  0%   { opacity: 0.55; }
-  100% { opacity: 1; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .creative-loading-screen { transition: none; }
-  .creative-loading-screen-signature { animation: none; opacity: 1; }
-}
+/* The SSR creative loading screen was removed — the hero's handoff
+   loader (HeroSection.tsx) now covers the hero → creative window,
+   and a secondary loader at the destination caused a visual hop
+   when the logo sizes didn't match. Direct URL visits see a brief
+   blank themed background before React hydrates — acceptable. */
 
 /* -------------------------------------------------------
    Left floating glass buttons

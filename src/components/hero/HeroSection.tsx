@@ -169,6 +169,12 @@ export default function HeroSection({ creativeImageUrl, creativeVideoUrl }: Prop
       data-fading={fading || undefined}
       data-expanding={expandingTo || undefined}
     >
+      {/* Academic backdrop FIRST so it sits at the bottom of the
+          stacking context — the side panels (rendered after) mask
+          their portions of the text with opaque bgs, leaving only
+          the transparent center panel area showing. */}
+      <AcademicBackdrop />
+
       <VisualPanels
         creativeBackground={
           <CreativeBackground
@@ -180,12 +186,6 @@ export default function HeroSection({ creativeImageUrl, creativeVideoUrl }: Prop
       />
 
       <CodeBackground typing={takeover === 'tech'} />
-
-      {/* Academic backdrop — research-paper-styled paragraphs on
-          hemispheric lateralization filling the center panel in
-          neutral state. Sits behind the brain (z:1), fades out on
-          takeover via CSS. Pure decoration / sophistication signal. */}
-      <AcademicBackdrop />
 
       {/* Brain layer — sits between the code background (z:1) and
           the center anchor (z:5). Larger than the center column
