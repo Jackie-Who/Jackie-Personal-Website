@@ -592,16 +592,23 @@
   will-change: transform;
 }
 
-/* Creative hover — brain lurches toward the left (creative side),
-   stretches a bit horizontally (like a water drop being pulled),
-   and tilts slightly. */
+/* Creative hover — brain lurches FAR toward the left (creative
+   side). The translate is large enough that the brain's INACTIVE
+   right hemisphere lands over the panel's text labels (the
+   sub-caption + click-to-see-more). Putting the dim hemisphere
+   over the text means the text's legibility is preserved (the
+   nodes there are at low opacity), while the bright active
+   hemisphere extends out into the empty side-panel area where
+   it can dominate visually without competing with copy. The
+   horizontal stretch + slight tilt sells the "fluid blob being
+   pulled sideways" feel. */
 .hero-app[data-takeover='creative'] .hero-neural-brain {
-  transform: translate3d(-13vw, 0, 0) scaleX(1.10) scaleY(0.94) rotate(-2deg);
+  transform: translate3d(-23vw, 0, 0) scaleX(1.10) scaleY(0.94) rotate(-2deg);
 }
 
 /* Tech hover — mirror direction, same deformation / tilt. */
 .hero-app[data-takeover='tech'] .hero-neural-brain {
-  transform: translate3d(13vw, 0, 0) scaleX(1.10) scaleY(0.94) rotate(2deg);
+  transform: translate3d(23vw, 0, 0) scaleX(1.10) scaleY(0.94) rotate(2deg);
 }
 
 /* During the expansion animation the whole hero collapses toward

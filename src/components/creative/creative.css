@@ -46,12 +46,16 @@
 }
 
 /* -------------------------------------------------------
-   Loading screen — branded overlay covering React's hydration
-   window. Rendered OUTSIDE .creative-app (sibling of it) so the
-   body's theme class (set pre-hydration by creative.astro) can
-   resolve the --creative-bg var without waiting for the React
-   tree to mount. Fast-hide: parent flips data-visible=undefined
-   on the next rAF after mount, triggering the 420 ms fade-out.
+   Loading screen — SSR-rendered static HTML in creative.astro.
+   Paints from the moment the browser receives the page's first
+   bytes (no JS required), covering the entire window-fetch /
+   JS-download / parse / hydrate window. CreativePortfolio's
+   first useEffect after mount adds data-hide=true to fade it
+   out, then removes the element from the DOM once the fade
+   transition completes.
+   Colors are body-class-scoped (NOT theme-scoped via
+   .creative-app) because the loader exists OUTSIDE .creative-app
+   in the DOM tree — it's a sibling of <main>, not a descendant.
    ------------------------------------------------------- */
 .creative-loading-screen {
   position: fixed;
@@ -60,17 +64,28 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--creative-bg);
-  color: var(--creative-text);
   font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
-  opacity: 0;
-  pointer-events: none;
+  /* Default = dark Mist. .creative-body-light overrides below. */
+  background: #0d0f13;
+  color: #e8ecf4;
+  /* Visible by default — only hides once React signals ready. */
+  opacity: 1;
+  pointer-events: auto;
   transition: opacity 420ms ease-out;
 }
 
-.creative-loading-screen[data-visible='true'] {
-  opacity: 1;
-  pointer-events: auto;
+.creative-body-light .creative-loading-screen {
+  background: #f5eedf;
+  color: #1e2a38;
+}
+
+/* Once React mounts and toggles this attribute, fade out + drop
+   pointer events so the loader doesn't intercept clicks on the
+   way out. The element is removed from the DOM by JS shortly
+   after (see the setTimeout in CreativePortfolio's mount effect). */
+.creative-loading-screen[data-hide='true'] {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .creative-loading-screen-inner {
@@ -78,11 +93,15 @@
   flex-direction: column;
   align-items: center;
   gap: 18px;
-  /* Cat + signature read with the same --cat-accent / --cat-eye
-     custom properties CatMark uses elsewhere — we map them onto
-     the active creative-palette tokens. */
-  --cat-accent: var(--creative-signature);
-  --cat-eye: var(--creative-text);
+  /* Map the cat-mark's --cat-* custom properties onto theme-aware
+     loader colors. Hardcoded by body class to match the rest of
+     the loader's palette. */
+  --cat-accent: #cfdeed;   /* dark sig */
+  --cat-eye: #e8ecf4;
+}
+.creative-body-light .creative-loading-screen-inner {
+  --cat-accent: #2a4d6f;   /* light sig */
+  --cat-eye: #1e2a38;
 }
 
 .creative-loading-screen-cat {
@@ -94,10 +113,15 @@
   font-style: italic;
   font-weight: 400;
   font-size: clamp(1.6rem, 2.8vw, 2.4rem);
-  color: var(--creative-signature);
   letter-spacing: 0.01em;
   line-height: 1;
+  /* Default sig color = dark theme; light theme overrides below. */
+  color: #cfdeed;
   animation: creative-loading-pulse 1.4s ease-in-out infinite alternate;
+}
+
+.creative-body-light .creative-loading-screen-signature {
+  color: #2a4d6f;
 }
 
 @keyframes creative-loading-pulse {

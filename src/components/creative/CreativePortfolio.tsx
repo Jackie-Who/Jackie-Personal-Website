@@ -5,7 +5,6 @@ import MusicPanel, { type PanelSize } from './MusicPanel';
 import PhotoGallery from './PhotoGallery';
 import PhotoExpanded from './PhotoExpanded';
 import CreativeReturnOverlay from './CreativeReturnOverlay';
-import LoadingScreen from './LoadingScreen';
 import type { Photo } from '@/content/photos';
 import type { Track } from '@/content/tracks';
 import './creative.css';
@@ -46,11 +45,6 @@ export default function CreativePortfolio({ photos, tracks }: Props) {
   // Music-panel size is lifted up so the header-bar toggle and the
   // drag handle both drive the same source of truth.
   const [musicSize, setMusicSize] = useState<PanelSize>('expanded');
-  // Loading-screen visibility. Starts true so a returning visitor
-  // sees the branded overlay covering React's hydration window
-  // (instead of a flash of empty gallery placeholders). rAF after
-  // mount flips it false, triggering a 420 ms fade-out via CSS.
-  const [loaderVisible, setLoaderVisible] = useState(true);
 
   // Keep the body bg in sync with theme. Both classes are mutually
   // exclusive — the Astro pre-hydration script on creative.astro
@@ -63,14 +57,23 @@ export default function CreativePortfolio({ photos, tracks }: Props) {
     document.body.classList.toggle('creative-body-dark', theme === 'dark');
   }, [theme]);
 
-  // Hide the loading screen on the next paint after first render.
-  // Two rAFs guarantees the initial paint happens with the overlay
-  // at opacity 1, then the CSS transition actually fires on the
-  // flip to data-visible=undefined. One rAF can still paint with
-  // the "hidden" state applied, skipping the fade.
+  // Hide the SSR-rendered loading screen now that React has mounted.
+  // The loader element lives in creative.astro's HTML (a sibling of
+  // <main>), painted from the moment the page lands — covering the
+  // entire JS-download / parse / hydrate window. Once we're here,
+  // React's tree is mounted and the gallery is ready to be revealed,
+  // so we add data-hide=true to start the 420 ms fade-out, then
+  // remove the element from the DOM after the transition completes
+  // so it can't intercept clicks or accumulate across navigations.
   useEffect(() => {
     const id1 = window.requestAnimationFrame(() => {
-      const id2 = window.requestAnimationFrame(() => setLoaderVisible(false));
+      const id2 = window.requestAnimationFrame(() => {
+        const loader = document.getElementById('creative-loading-screen');
+        if (loader) {
+          loader.setAttribute('data-hide', 'true');
+          window.setTimeout(() => loader.remove(), 800);
+        }
+      });
       return () => window.cancelAnimationFrame(id2);
     });
     return () => window.cancelAnimationFrame(id1);
@@ -108,47 +111,40 @@ export default function CreativePortfolio({ photos, tracks }: Props) {
   }, []);
 
   return (
-    <>
-      <div
-        className="creative-app"
-        data-view={view}
-        data-leaving={leaving || undefined}
-        data-theme={theme}
-      >
-        {leaving && <CreativeReturnOverlay />}
-        <CreativeLeftPill
-          onBack={handleBack}
-          theme={theme}
-          onToggleTheme={handleToggleTheme}
-          showGallery={view === 'expanded'}
-          onGallery={handleClosePhoto}
-        />
+    <div
+      className="creative-app"
+      data-view={view}
+      data-leaving={leaving || undefined}
+      data-theme={theme}
+    >
+      {leaving && <CreativeReturnOverlay />}
+      <CreativeLeftPill
+        onBack={handleBack}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
+        showGallery={view === 'expanded'}
+        onGallery={handleClosePhoto}
+      />
 
-        <main className="creative-main">
-          <div className="creative-stage">
-            {view === 'gallery' ? (
-              <PhotoGallery photos={photos} onOpen={handleOpenPhoto} />
-            ) : (
-              <PhotoExpanded
-                photos={photos}
-                startId={expandedStart}
-                onClose={handleClosePhoto}
-              />
-            )}
-          </div>
+      <main className="creative-main">
+        <div className="creative-stage">
+          {view === 'gallery' ? (
+            <PhotoGallery photos={photos} onOpen={handleOpenPhoto} />
+          ) : (
+            <PhotoExpanded
+              photos={photos}
+              startId={expandedStart}
+              onClose={handleClosePhoto}
+            />
+          )}
+        </div>
 
-          <MusicPanel tracks={tracks} size={musicSize} onSizeChange={setMusicSize} />
-        </main>
-      </div>
-
-      {/* Loading screen — rendered OUTSIDE .creative-app so its
-          theme can inherit the body-level class (which the
-          pre-hydration script in creative.astro set before React
-          even booted). Sibling order + fixed positioning means the
-          overlay always paints above the rest of the app during
-          the brief hydration window; fades out once loaderVisible
-          flips false (rAF after mount). */}
-      <LoadingScreen visible={loaderVisible} />
-    </>
+        <MusicPanel tracks={tracks} size={musicSize} onSizeChange={setMusicSize} />
+      </main>
+      {/* The loading screen overlay used to live here as a React
+          component. It now lives as static HTML in creative.astro
+          so it covers the JS-download / hydrate window — see the
+          mount effect above for the hide / remove logic. */}
+    </div>
   );
 }
