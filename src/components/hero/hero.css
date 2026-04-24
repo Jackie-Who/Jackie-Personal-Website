@@ -353,6 +353,24 @@
   opacity: 1;
 }
 
+/* Real uploaded image — fills the panel via object-fit: cover. The
+   gradient bg above acts as a fallback while the image decodes. */
+.hero-creative-img-real {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Real uploaded video — same fill behavior; muted + looped for
+   autoplay compatibility (handled in the JSX). */
+.hero-creative-vid-real {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .hero-creative-img-inner {
   width: 70%;
   height: 60%;
@@ -556,6 +574,90 @@
   text-align: center;
 }
 
+/* ----------------------------------------------------------
+   Academic backdrop — research-paper-styled prose on hemispheric
+   lateralization, filling the center panel in neutral state.
+   Sits BEHIND the neural brain (z:1) and fades out on takeover.
+   Pure visual texture / sophistication signal — the viewer is
+   not expected to actually read it, but the typography reads as
+   "this person works with depth" at a glance.
+   ---------------------------------------------------------- */
+.hero-academic-backdrop {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 38.2%;
+  width: 23.6%;
+  z-index: 1;
+  padding: 7vh 4.5% 6vh;
+  /* Cormorant for body, Cardo as backup — both serve the
+     scholarly-journal aesthetic. Falls back to Georgia / serif. */
+  font-family: 'Cormorant Garamond', 'Cardo', Georgia, serif;
+  font-size: clamp(0.62rem, 0.78vw, 0.78rem);
+  line-height: 1.42;
+  text-align: justify;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  color: rgba(40, 40, 50, 0.4);
+  pointer-events: none;
+  user-select: none;
+  overflow: hidden;
+  transition: opacity 500ms ease;
+  /* Vertical fade at top + bottom so the text doesn't hard-edge
+     against the panel borders — looks like it's bleeding past
+     the visible frame, which is the academic-paper feel. */
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, black 8%, black 92%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0%, black 8%, black 92%, transparent 100%);
+}
+
+.hero-academic-paragraph {
+  margin: 0 0 9px;
+  text-indent: 1em;
+}
+
+.hero-academic-paragraph:first-of-type {
+  text-indent: 0;
+}
+
+.hero-academic-paragraph em {
+  font-style: italic;
+  color: rgba(40, 40, 50, 0.55);
+}
+
+.hero-academic-paragraph sup {
+  font-size: 0.62em;
+  vertical-align: super;
+  margin: 0 1px 0 1px;
+  color: rgba(40, 40, 50, 0.55);
+}
+
+.hero-academic-refs {
+  margin: 14px 0 0;
+  padding-left: 14px;
+  font-size: clamp(0.52rem, 0.66vw, 0.64rem);
+  line-height: 1.35;
+  color: rgba(40, 40, 50, 0.32);
+}
+
+.hero-academic-refs li {
+  margin-bottom: 5px;
+}
+
+/* Hide on takeover — center panel is collapsing, no point keeping
+   the text visible. Same 500 ms fade as panels feels coordinated. */
+.hero-app[data-takeover='creative'] .hero-academic-backdrop,
+.hero-app[data-takeover='tech'] .hero-academic-backdrop,
+.hero-app[data-expanding] .hero-academic-backdrop {
+  opacity: 0;
+}
+
+/* Mobile — center column gets too narrow for justified academic
+   text to breathe. Hide entirely; the brain is the focal point on
+   small screens. */
+@media (max-width: 720px) {
+  .hero-academic-backdrop { display: none; }
+}
+
 /* Neural-web brain — lives in its own hero-level layer (not inside
    .hero-center) so it can translate horizontally into either side
    panel when the viewer hovers, without being clipped by the
@@ -618,6 +720,97 @@
   transition: transform 420ms cubic-bezier(0.4, 0, 0.2, 1), opacity 420ms ease;
   transform: translate3d(0, 0, 0) scale(1);
   opacity: 0;
+}
+
+/* ----------------------------------------------------------
+   Handoff loader — covers the hero AFTER the expansion finishes
+   and BEFORE ClientRouter swaps in the destination page. The old
+   "click → expansion → blank dark hero during fetch → flash of
+   destination's loader → destination" sequence is replaced by
+   "click → expansion → handoff loader → (DOM swap to identical
+   destination loader) → destination". The two loaders look
+   identical so the swap is visually seamless.
+
+   Theme is matched from localStorage in HeroSection (creative
+   only — tech doesn't have a light/dark twin). z-index 200 so
+   it sits above every hero layer including the brain (z:2),
+   center anchor (z:5), and hitzones (z:10).
+   ---------------------------------------------------------- */
+.hero-handoff-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
+  /* Default — Mist (dark) creative palette + neutral fallback for
+     tech destination. Light-creative override below. */
+  background: #0d0f13;
+  color: #e8ecf4;
+  animation: hero-handoff-fade-in 220ms ease-out;
+}
+
+.hero-handoff-loader[data-destination='tech'] {
+  /* Tech is single-theme — matches the tech page's dark canvas. */
+  background: #080c16;
+  color: #c0d8f0;
+}
+
+.hero-handoff-loader[data-destination='creative'][data-creative-theme='light'] {
+  background: #f5eedf;
+  color: #1e2a38;
+}
+
+.hero-handoff-loader-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  /* Default — dark Mist accent + light eye glyph. */
+  --cat-accent: #cfdeed;
+  --cat-eye: #e8ecf4;
+}
+.hero-handoff-loader[data-destination='tech'] .hero-handoff-loader-inner {
+  --cat-accent: #7ab0d8;
+  --cat-eye: #c0d8f0;
+}
+.hero-handoff-loader[data-destination='creative'][data-creative-theme='light'] .hero-handoff-loader-inner {
+  --cat-accent: #2a4d6f;
+  --cat-eye: #1e2a38;
+}
+
+.hero-handoff-loader-signature {
+  font-style: italic;
+  font-weight: 400;
+  font-size: clamp(1.6rem, 2.8vw, 2.4rem);
+  letter-spacing: 0.01em;
+  line-height: 1;
+  color: #cfdeed;
+  animation: hero-handoff-loader-pulse 1.4s ease-in-out infinite alternate;
+}
+.hero-handoff-loader[data-destination='tech'] .hero-handoff-loader-signature {
+  color: #7ab0d8;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-style: normal;
+}
+.hero-handoff-loader[data-destination='creative'][data-creative-theme='light'] .hero-handoff-loader-signature {
+  color: #2a4d6f;
+}
+
+@keyframes hero-handoff-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes hero-handoff-loader-pulse {
+  0%   { opacity: 0.55; }
+  100% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-handoff-loader { animation: none; }
+  .hero-handoff-loader-signature { animation: none; opacity: 1; }
 }
 
 /* Cat mark in hero — inherits takeover-aware palette via --cat-* vars */

@@ -1,6 +1,30 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import HeroSection from '@/components/hero/HeroSection';
+import { getHeroAssets, isDbReady } from '@/lib/db';
+import { isR2Configured, r2PublicUrl } from '@/lib/r2';
+
+// Server-render so the hero's creative-side image / video can be
+// updated from the CMS without redeploying. If the DB isn't reachable
+// or R2 isn't configured (early-phase / preview deploys), fall back
+// to nulls and the hero shows its built-in placeholders.
+export const prerender = false;
+
+let creativeImageUrl: string | null = null;
+let creativeVideoUrl: string | null = null;
+try {
+  if (isR2Configured() && (await isDbReady())) {
+    const assets = await getHeroAssets();
+    if (assets?.creative_image_r2_key) {
+      creativeImageUrl = r2PublicUrl(assets.creative_image_r2_key);
+    }
+    if (assets?.creative_video_r2_key) {
+      creativeVideoUrl = r2PublicUrl(assets.creative_video_r2_key);
+    }
+  }
+} catch {
+  /* DB unreachable — placeholders stay */
+}
 ---
 
 <BaseLayout
@@ -10,7 +34,11 @@ import HeroSection from '@/components/hero/HeroSection';
   bodyClass="hero-body"
 >
   <main id="main" class="hero-main">
-    <HeroSection client:only="react" />
+    <HeroSection
+      creativeImageUrl={creativeImageUrl}
+      creativeVideoUrl={creativeVideoUrl}
+      client:only="react"
+    />
     <noscript>
       <div class="hero-noscript">
         <h1>Jackie</h1>

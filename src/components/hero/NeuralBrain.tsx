@@ -1,13 +1,13 @@
 import { useEffect, useRef } from 'react';
-import type { Takeover } from './HeroSection';
-
-type NavState = 'idle' | 'expanding-tech' | 'expanding-creative';
+import type { NavState, Takeover } from './HeroSection';
 
 interface Props {
   /** Drives the per-hemisphere active color + target opacity. */
   takeover: Takeover;
   /** Expanding into a side page → fire a click-burst of particles
-   *  radiating from that hemisphere before the page swipes. */
+   *  radiating from that hemisphere before the page swipes. The
+   *  loading-* states (post-expansion handoff window) don't
+   *  trigger any new effects — the brain is fading out by then. */
   nav: NavState;
 }
 

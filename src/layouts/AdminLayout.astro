@@ -4,7 +4,7 @@ import { isAuthenticated } from '@/lib/auth';
 
 interface Props {
   title: string;
-  active: 'photos' | 'music';
+  active: 'photos' | 'music' | 'hero';
 }
 
 const { title, active } = Astro.props;
@@ -29,6 +29,7 @@ if (!authed) {
       <nav class="admin-nav">
         <a href="/admin/photos" class:list={['admin-nav-link', active === 'photos' && 'is-active']}>Photos</a>
         <a href="/admin/music" class:list={['admin-nav-link', active === 'music' && 'is-active']}>Music</a>
+        <a href="/admin/hero" class:list={['admin-nav-link', active === 'hero' && 'is-active']}>Hero assets</a>
       </nav>
       <div class="admin-side-foot">
         <a href="/" class="admin-nav-link admin-nav-link-quiet">View site ↗</a>

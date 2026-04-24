@@ -1,0 +1,10 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import HeroAssetsManager from '@/components/admin/HeroAssetsManager';
+export const prerender = false;
+---
+
+<AdminLayout title="Hero assets" active="hero">
+  <h1>Hero assets</h1>
+  <HeroAssetsManager client:load />
+</AdminLayout>

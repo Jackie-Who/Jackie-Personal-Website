@@ -93,6 +93,15 @@ export async function ensureSchema(): Promise<void> {
       sort_order INTEGER DEFAULT 0,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
+    `CREATE TABLE IF NOT EXISTS hero_assets (
+      id TEXT PRIMARY KEY,
+      creative_image_r2_key TEXT,
+      creative_image_filename TEXT,
+      creative_video_r2_key TEXT,
+      creative_video_filename TEXT,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `INSERT OR IGNORE INTO hero_assets (id) VALUES ('main')`,
   ], 'write');
 }
 
@@ -259,5 +268,38 @@ export async function deleteTrack(id: string): Promise<void> {
   await c.execute({
     sql: 'DELETE FROM tracks WHERE id = ?',
     args: [id],
+  });
+}
+
+// ------------------------------------------------------------
+// Hero assets — singleton row keyed 'main' that holds the homepage
+// hero's creative-side image (resting state) + video (on-hover).
+// Replaces the built-in CSS placeholder once the admin uploads
+// real assets.
+// ------------------------------------------------------------
+export interface HeroAssetsRow {
+  id: string;
+  creative_image_r2_key: string | null;
+  creative_image_filename: string | null;
+  creative_video_r2_key: string | null;
+  creative_video_filename: string | null;
+  updated_at: string;
+}
+
+export async function getHeroAssets(): Promise<HeroAssetsRow | null> {
+  const c = getDb();
+  const r = await c.execute("SELECT * FROM hero_assets WHERE id = 'main' LIMIT 1");
+  return (r.rows[0] as unknown as HeroAssetsRow) ?? null;
+}
+
+export async function updateHeroAssets(patch: Partial<HeroAssetsRow>): Promise<void> {
+  const keys = Object.keys(patch).filter((k) => k !== 'id' && k !== 'updated_at');
+  if (keys.length === 0) return;
+  const set = keys.map((k) => `${k} = ?`).join(', ');
+  const values = keys.map((k) => (patch as Record<string, unknown>)[k]);
+  const c = getDb();
+  await c.execute({
+    sql: `UPDATE hero_assets SET ${set}, updated_at = CURRENT_TIMESTAMP WHERE id = 'main'`,
+    args: values as (string | number | null)[],
   });
 }
