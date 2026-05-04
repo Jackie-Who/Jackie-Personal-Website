@@ -131,11 +131,60 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
     if (photos.length <= 1) return;
 
     let wrapping = false;
+    let wrapResetTimer: number | null = null;
     // A short grace window after mount so the initial scrollTo doesn't
     // immediately trip the wrap detector.
     let armed = false;
     const armTimer = window.setTimeout(() => { armed = true; }, 200);
     let settleTimer: number | null = null;
+
+    /**
+     * Run the actual wrap-around teleport. Done as a helper so both
+     * boundary cases share identical fix-up: temporarily disable
+     * scroll-snap, scrollTo, then restore snap two frames later.
+     *
+     * Why disable snap during the teleport: scroll-snap-type: y
+     * mandatory remembers the last snap target it was working
+     * toward. When we programmatically scrollTo a new position
+     * during a user gesture, the snap engine can hold a "stuck"
+     * state where the next user wheel input gets pulled back to
+     * the wrap-target snap point instead of advancing to the next
+     * one. That was the bug: after scroll-down-from-last-image
+     * wrapped back to the first, the next scroll-down stayed on
+     * the first instead of advancing to the second. Toggling
+     * scroll-snap-type off → on around the teleport flushes that
+     * stuck state.
+     *
+     * The wrapping flag stays true until we observe the post-wrap
+     * scrollend (or the fallback timer fires), so onSettle bails
+     * cleanly during the entire teleport window — no stale wrap
+     * detection mid-flight.
+     */
+    const performWrap = (target: number) => {
+      wrapping = true;
+      // Disable snap so the engine doesn't fight the programmatic
+      // scrollTo. Save the inline value to restore exactly.
+      const prevSnap = root.style.scrollSnapType;
+      root.style.scrollSnapType = 'none';
+      root.scrollTo({ top: target, behavior: 'auto' });
+      // Two rAFs is enough for the browser to register the new
+      // scrollTop and clear any pending snap-realign work; longer
+      // would let the user's next gesture start before snap is
+      // back on.
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          root.style.scrollSnapType = prevSnap;
+        });
+      });
+      // Clear any prior reset timer so back-to-back wraps don't
+      // race. Fallback is generous (240ms) — scrollend usually
+      // fires sooner and clears wrapping there.
+      if (wrapResetTimer !== null) window.clearTimeout(wrapResetTimer);
+      wrapResetTimer = window.setTimeout(() => {
+        wrapping = false;
+        wrapResetTimer = null;
+      }, 240);
+    };
 
     // Only fire a wrap after the scroll has SETTLED at a snap point.
     // Firing mid-scroll (e.g. at scrollTop = 0.4 * h while the viewer
@@ -170,15 +219,31 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
         // Settled on clone-last (before the real first). Jump to
         // the real last (position photos.length). Identical bytes
         // to the clone → user sees no seam.
-        wrapping = true;
-        root.scrollTo({ top: photos.length * h, behavior: 'auto' });
-        window.setTimeout(() => { wrapping = false; }, 80);
+        performWrap(photos.length * h);
       } else if (index === photos.length + 1) {
         // Settled on clone-first (after the real last). Jump to
         // the real first at position 1.
-        wrapping = true;
-        root.scrollTo({ top: h, behavior: 'auto' });
-        window.setTimeout(() => { wrapping = false; }, 80);
+        performWrap(h);
+      }
+    };
+
+    // After a wrap teleport, the post-wrap scrollend is our cue
+    // that the snap engine has fully accepted the new position
+    // and is ready for fresh user input. Clearing wrapping here
+    // (rather than waiting on the fallback timer) makes the
+    // post-wrap scroll feel snappier.
+    const onPostWrapScrollEnd = () => {
+      if (!wrapping) return;
+      // Only clear if the position is at a real (non-clone) snap.
+      const h = root.clientHeight;
+      if (h === 0) return;
+      const idx = Math.round(root.scrollTop / h);
+      if (idx >= 1 && idx <= photos.length) {
+        wrapping = false;
+        if (wrapResetTimer !== null) {
+          window.clearTimeout(wrapResetTimer);
+          wrapResetTimer = null;
+        }
       }
     };
 
@@ -197,16 +262,24 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
     // browser fires a dedicated scrollend once snap settles — more
     // responsive than the debounce fallback. Both can fire in the
     // same session; onSettle is idempotent against duplicate calls.
+    // onPostWrapScrollEnd separately clears the wrapping flag so
+    // user input post-wrap is honored without waiting on the
+    // fallback timer.
     const hasScrollend = 'onscrollend' in root;
     if (hasScrollend) {
       root.addEventListener('scrollend', onSettle, { passive: true });
+      root.addEventListener('scrollend', onPostWrapScrollEnd, { passive: true });
     }
 
     return () => {
       window.clearTimeout(armTimer);
       if (settleTimer !== null) window.clearTimeout(settleTimer);
+      if (wrapResetTimer !== null) window.clearTimeout(wrapResetTimer);
       root.removeEventListener('scroll', onScroll);
-      if (hasScrollend) root.removeEventListener('scrollend', onSettle);
+      if (hasScrollend) {
+        root.removeEventListener('scrollend', onSettle);
+        root.removeEventListener('scrollend', onPostWrapScrollEnd);
+      }
     };
   }, [photos.length, startId]);
 

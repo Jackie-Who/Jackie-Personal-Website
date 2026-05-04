@@ -650,6 +650,16 @@
   translate: 6.2vw 0;
 }
 
+/* About / contact phase shrinks the tech panel from 38.2% → 20%,
+   so the code column has to slide right to follow the panel's
+   left edge. Delta = (80% − 61.8%) of viewport = 18.2vw. Same
+   ease as the takeover slide above so the code reads as part of
+   the same physical layout shift. */
+.hero-app[data-takeover='neutral'][data-about-phase='about'] .hero-code-wrap,
+.hero-app[data-takeover='neutral'][data-about-phase='contact'] .hero-code-wrap {
+  translate: 18.2vw 0;
+}
+
 .hero-code {
   position: absolute;
   inset: 0;
@@ -711,6 +721,16 @@
   z-index: 5;
   padding: 0 12px;
   text-align: center;
+  /* The about-me reveal compresses the vertical bounds (bottom: 60vh)
+     so the cat anchor floats up to the top 40% of viewport, freeing
+     the lower 60% for the about-me block. left/width also animate
+     to widen the column. Same easing as the panel-flex transition
+     so they appear as one coordinated motion. */
+  transition:
+    top 600ms cubic-bezier(0.4, 0, 0.2, 1),
+    bottom 600ms cubic-bezier(0.4, 0, 0.2, 1),
+    left 600ms cubic-bezier(0.4, 0, 0.2, 1),
+    width 600ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ----------------------------------------------------------
@@ -788,10 +808,15 @@
 }
 
 /* Hide on takeover — center panel is collapsing, no point keeping
-   the text visible. Same 500 ms fade as panels feels coordinated. */
+   the text visible. Same 500 ms fade as panels feels coordinated.
+   Also hidden during the about / contact phases so the about-me
+   reading layout has a clean cream background rather than the
+   research-paper noise behind the bio copy. */
 .hero-app[data-takeover='creative'] .hero-academic-backdrop,
 .hero-app[data-takeover='tech'] .hero-academic-backdrop,
-.hero-app[data-expanding] .hero-academic-backdrop {
+.hero-app[data-expanding] .hero-academic-backdrop,
+.hero-app[data-about-phase='about'] .hero-academic-backdrop,
+.hero-app[data-about-phase='contact'] .hero-academic-backdrop {
   opacity: 0;
 }
 
@@ -820,6 +845,13 @@
      padding-bottom eats flex-space below so `align-items: center`
      lands the brain ~5 vh higher than it would otherwise. */
   padding-bottom: 10vh;
+  /* Base transition so opacity changes (about-phase fade-out, then
+     return-to-hero fade-in) animate smoothly in BOTH directions.
+     Without this, the rule that hides the brain only declares its
+     transition while it's applied; on return there's no transition
+     and the brain pops back in instantly. */
+  opacity: 1;
+  transition: opacity 540ms ease;
 }
 
 .hero-neural-brain {
@@ -863,6 +895,18 @@
 .hero-app[data-expanding] .hero-neural-brain {
   transition: transform 420ms cubic-bezier(0.4, 0, 0.2, 1), opacity 420ms ease;
   transform: translate3d(0, 0, 0) scale(1);
+  opacity: 0;
+}
+
+/* About / contact phase — brain hides entirely. The hero's whole
+   conceit is the brain choosing between hemispheres, which doesn't
+   apply when the viewer has scrolled past that into "tell me about
+   yourself." Hiding makes room for the calmer reading layout and
+   removes a visual element that was competing with the bio copy.
+   Transition is set on the base `.hero-brain-layer` rule so the
+   return-to-hero fade-in is also smooth. */
+.hero-app[data-takeover='neutral'][data-about-phase='about'] .hero-brain-layer,
+.hero-app[data-takeover='neutral'][data-about-phase='contact'] .hero-brain-layer {
   opacity: 0;
 }
 
@@ -1063,10 +1107,16 @@
 }
 
 .hero-description {
+  position: relative;
   font-size: 0.78rem;
   text-align: center;
   line-height: 1.5;
-  max-width: 220px;
+  /* Wider than the previous 220 px so "a bit of everything…" plus
+     the longer about-phase variant both fit on one line without
+     overlapping the absolute layer. The text is short enough that
+     this doesn't change the visual weight. */
+  max-width: 280px;
+  width: 100%;
   /* Locked single-line height — all three description variants are
      one line, so the box never needs to grow. */
   height: 1.6em;
@@ -1123,6 +1173,11 @@
   appearance: none;
   -webkit-appearance: none;
   border-radius: 0;
+  /* Hitbox widths transition in lockstep with the panel flex
+     so they always cover the same visible area as the panel
+     they correspond to — no invisible "ghost" slice that swipes
+     a takeover when the user is just trying to read about-me. */
+  transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .hero-hitzone-creative {
@@ -1137,6 +1192,23 @@
 .hero-hitzone-tech {
   width: 38.2%;
   cursor: pointer;
+}
+
+/* While in about / contact phase the side panels narrow to 20%;
+   the hitboxes follow so the wider middle slice doesn't ambush
+   a side takeover when the user moves the cursor across the
+   about-me content. */
+.hero-app[data-takeover='neutral'][data-about-phase='about'] .hero-hitzone-creative,
+.hero-app[data-takeover='neutral'][data-about-phase='contact'] .hero-hitzone-creative {
+  width: 20%;
+}
+.hero-app[data-takeover='neutral'][data-about-phase='about'] .hero-hitzone-center,
+.hero-app[data-takeover='neutral'][data-about-phase='contact'] .hero-hitzone-center {
+  width: 60%;
+}
+.hero-app[data-takeover='neutral'][data-about-phase='about'] .hero-hitzone-tech,
+.hero-app[data-takeover='neutral'][data-about-phase='contact'] .hero-hitzone-tech {
+  width: 20%;
 }
 
 .hero-hitzone:focus-visible {
@@ -1236,3 +1308,598 @@
     padding: 12px 14px;
   }
 }
+
+/* ==========================================================
+   About-me reveal + contact drawer
+   ==========================================================
+   Triggered by the wheel/touch scroll-jack in HeroSection. Phases:
+     - hero    (default): classic side-panel layout, cat anchor centered
+     - about   : middle column widens, cat anchor floats up to top 40%,
+                 about-me content fades into the bottom 60%
+     - contact : same widths/anchor as `about`, with the contact
+                 drawer sliding up from the bottom
+   ========================================================== */
+
+/* ---------- Panel-width reshape (only when no side takeover) ---------- */
+
+/* Specificity (0,0,3,0) — beats both the per-takeover rules
+   (which always include data-takeover='creative'/'tech') and the
+   default panel widths. We restrict to data-takeover='neutral' so
+   the side hover/click takeover always wins over about-phase. */
+.hero-app[data-takeover='neutral'][data-about-phase='about'] .hero-panel-creative,
+.hero-app[data-takeover='neutral'][data-about-phase='contact'] .hero-panel-creative {
+  flex: 0.20;
+}
+.hero-app[data-takeover='neutral'][data-about-phase='about'] .hero-panel-center,
+.hero-app[data-takeover='neutral'][data-about-phase='contact'] .hero-panel-center {
+  flex: 0.60;
+}
+.hero-app[data-takeover='neutral'][data-about-phase='about'] .hero-panel-tech,
+.hero-app[data-takeover='neutral'][data-about-phase='contact'] .hero-panel-tech {
+  flex: 0.20;
+}
+
+/* ---------- Center anchor compresses upward ---------- */
+
+/* The cat anchor sits in .hero-center. Default top:0 / bottom:0
+   makes its flex-children center the cat group at viewport mid. We
+   shrink the bottom bound to 80vh so the same flex centering puts
+   the cat group in the upper 20% of viewport — leaving the lower
+   80% for the about-me content (portrait + 2-column grid). */
+.hero-app[data-takeover='neutral'][data-about-phase='about'] .hero-center,
+.hero-app[data-takeover='neutral'][data-about-phase='contact'] .hero-center {
+  bottom: 80vh;
+  left: 20%;
+  width: 60%;
+}
+
+/* ---------- Side-panel captions hide during about-phase ---------- */
+
+/* "Music / Photography", "Projects / Experience", and the
+   "click to see more" hints all fade out — about-me is the new
+   focal content; the side panels stay present but quiet. */
+.hero-app[data-takeover='neutral']:where(
+  [data-about-phase='about'],
+  [data-about-phase='contact']
+) .hero-panel-sub,
+.hero-app[data-takeover='neutral']:where(
+  [data-about-phase='about'],
+  [data-about-phase='contact']
+) .hero-panel-hint {
+  opacity: 0;
+  transition: opacity 320ms ease;
+  pointer-events: none;
+}
+
+/* ---------- Description morph: "a bit of everything…" → "a bit about me" ---------- */
+
+/* Two complete phrases stacked inside the .hero-description box.
+   Both are absolutely positioned + centered, so each variant frames
+   as a properly-centered phrase regardless of its width. The
+   default phrase (varies by takeover) cross-fades with the about
+   phrase ("a bit about me") when the about-phase activates. */
+.hero-description-default,
+.hero-description-about {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  transition: opacity 360ms ease;
+}
+
+.hero-description-default { opacity: 1; }
+.hero-description-about { opacity: 0; }
+
+.hero-app[data-takeover='neutral'][data-about-phase='about'] .hero-description-default,
+.hero-app[data-takeover='neutral'][data-about-phase='contact'] .hero-description-default {
+  opacity: 0;
+}
+.hero-app[data-takeover='neutral'][data-about-phase='about'] .hero-description-about,
+.hero-app[data-takeover='neutral'][data-about-phase='contact'] .hero-description-about {
+  opacity: 1;
+}
+
+/* ---------- About-me content block ---------- */
+
+.hero-about {
+  position: absolute;
+  /* Off-screen rest position. We DELIBERATELY don't transition `top`
+     so on return the section just fades out in place rather than
+     sliding down (the prior bug). When the phase flips OFF, only
+     opacity animates; the `top` jump back to 100% happens during the
+     opacity-0 window and is therefore invisible. */
+  left: 38.2%;
+  width: 23.6%;
+  top: 100%;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Photo at top, text grid below. Cap content width so the columns
+     stay legible on very wide displays. */
+  justify-content: flex-start;
+  gap: 18px;
+  padding: 22px 24px 56px;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 5;
+  color: #1a1a1a;
+  /* Layout transitions (left/width) match the panel reshape; `top`
+     is intentionally NOT in this list so the section can't slide
+     vertically during the phase swap. */
+  transition:
+    left 600ms cubic-bezier(0.4, 0, 0.2, 1),
+    width 600ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 480ms ease 100ms;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.hero-app[data-takeover='neutral'][data-about-phase='about'] .hero-about,
+.hero-app[data-takeover='neutral'][data-about-phase='contact'] .hero-about {
+  /* Match the widened center column. Top sits BELOW the cat anchor
+     (which compresses to bottom: 80vh) so the reading content has
+     the lower 80% of the viewport to breathe. */
+  left: 20%;
+  width: 60%;
+  top: 20vh;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Inner content fades in slightly LATER than the wrapper so the
+   layout shift completes before details ramp into focus. */
+.hero-about-photo-wrap,
+.hero-about-grid {
+  opacity: 0;
+  transition: opacity 460ms ease 220ms;
+}
+
+.hero-app[data-takeover='neutral'][data-about-phase='about'] .hero-about-photo-wrap,
+.hero-app[data-takeover='neutral'][data-about-phase='contact'] .hero-about-photo-wrap {
+  opacity: 1;
+}
+
+.hero-app[data-takeover='neutral'][data-about-phase='about'] .hero-about-grid,
+.hero-app[data-takeover='neutral'][data-about-phase='contact'] .hero-about-grid {
+  opacity: 1;
+  /* Slight extra delay on the text grid so it lands after the photo
+     for a layered "portrait → bio" reveal. */
+  transition: opacity 520ms ease 360ms;
+}
+
+.hero-about-photo-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.hero-about-photo {
+  display: block;
+  width: clamp(88px, 8.5vw, 112px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  object-fit: cover;
+  /* Subtle ring so the portrait reads as a deliberate object on
+     the cream paper canvas, not a floating cutout. */
+  box-shadow:
+    0 0 0 1px rgba(26, 26, 26, 0.12),
+    0 12px 32px -16px rgba(40, 30, 50, 0.22);
+}
+
+/* Two-column journal-bio grid below the portrait. */
+.hero-about-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(28px, 4vw, 56px);
+  width: 100%;
+  max-width: 760px;
+  margin: 6px auto 0;
+  text-align: left;
+}
+
+.hero-about-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Small italic Playfair section label — single concession to display
+   typography. Anchors each column without competing with the body
+   copy below it. */
+.hero-about-col-title {
+  margin: 0 0 4px;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 0.96rem;
+  color: rgba(26, 26, 26, 0.55);
+  letter-spacing: 0.02em;
+}
+
+.hero-about-body {
+  margin: 0;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-style: normal;
+  font-size: clamp(0.84rem, 0.95vw, 0.94rem);
+  line-height: 1.65;
+  color: rgba(26, 26, 26, 0.82);
+}
+
+.hero-about-body em {
+  font-style: italic;
+  color: rgba(26, 26, 26, 0.7);
+}
+
+.hero-about-body strong {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.hero-about-link {
+  color: #1a1a1a;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 160ms ease;
+}
+
+.hero-about-link:hover,
+.hero-about-link:focus-visible {
+  color: #5a3a4a;
+  outline: none;
+}
+
+/* ---------- Phase hint at hero bottom ---------- */
+
+/* Pinned scroll cue at the bottom of the viewport. Same Playfair
+   italic + cream-on-cream color as .hero-description so it reads
+   as a continuation of the same voice rather than a separate UI
+   element. Animates the arrow only — text stays steady. */
+.hero-phase-hint {
+  position: absolute;
+  bottom: clamp(14px, 3vh, 28px);
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-style: italic;
+  font-size: 0.86rem;
+  color: rgba(26, 26, 26, 0.55);
+  pointer-events: none;
+  z-index: 11;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: color 320ms ease, opacity 320ms ease;
+}
+
+.hero-phase-hint-arrow {
+  display: inline-block;
+  font-size: 0.78em;
+  animation: hero-phase-hint-bob 1.8s ease-in-out infinite;
+}
+
+@keyframes hero-phase-hint-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(3px); }
+}
+
+/* On takeover, the page is committing to a side route — the hint
+   would just clutter the swipe. Hide it. */
+.hero-app[data-takeover='creative'] .hero-phase-hint,
+.hero-app[data-takeover='tech'] .hero-phase-hint,
+.hero-app[data-expanding] .hero-phase-hint {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-phase-hint-arrow {
+    animation: none;
+  }
+}
+
+/* ---------- Contact drawer (hero-style: typography-first) ---------- */
+
+/* Simpler than the previous drafted card. The hero already lives
+   on a cream paper canvas — the drawer just uses that same paper,
+   adds a thin top border to delineate, and lets the typography do
+   the work. No backdrop blur, no inner glow. */
+.hero-contact-drawer {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: min(560px, calc(100% - 32px));
+  max-height: min(540px, 88svh);
+  padding: 22px 28px 14px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(252, 250, 244, 0.96) 0%,
+      rgba(248, 244, 234, 0.98) 100%
+    );
+  border: 0.5px solid rgba(26, 26, 26, 0.16);
+  border-bottom: none;
+  border-radius: 22px 22px 0 0;
+  translate: -50% 0;
+  transform: translate3d(0, 100%, 0);
+  will-change: transform, opacity;
+  pointer-events: none;
+  z-index: 12;
+  box-shadow: 0 -24px 72px -36px rgba(40, 30, 50, 0.32);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition:
+    transform 620ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 480ms ease;
+  opacity: 0;
+}
+
+.hero-contact-drawer.is-open {
+  transform: translate3d(0, 0, 0);
+  pointer-events: auto;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-contact-drawer {
+    transition: none;
+  }
+}
+
+.hero-contact-handle {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.hero-contact-handle-bar {
+  display: block;
+  width: 40px;
+  height: 3px;
+  border-radius: 99px;
+  background: rgba(26, 26, 26, 0.18);
+}
+
+.hero-contact-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+}
+
+.hero-contact-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hero-contact-title {
+  margin: 0;
+  font-family: 'Playfair Display', serif;
+  font-weight: 400;
+  font-style: italic;
+  font-size: clamp(1.6rem, 3vw, 2.1rem);
+  letter-spacing: -0.02em;
+  color: #1a1a1a;
+}
+
+.hero-contact-sub {
+  margin: 0;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-style: normal;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: rgba(26, 26, 26, 0.62);
+}
+
+.hero-contact-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Two-up row for name + email so they sit side-by-side at desktop;
+   stacks on mobile via the @media block at the end. */
+.hero-contact-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.hero-contact-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.hero-contact-label {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-style: normal;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  color: rgba(26, 26, 26, 0.5);
+}
+
+/* Bottom-border-only inputs — the drawer is the chrome, not the
+   field. Inter for the typed value (cleaner than Playfair for form
+   input), tight padding so the underline sits right under the line
+   of typed text rather than far below it. */
+.hero-contact-input,
+.hero-contact-textarea {
+  width: 100%;
+  padding: 4px 0 6px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(26, 26, 26, 0.22);
+  border-radius: 0;
+  color: #1a1a1a;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  transition: border-color 220ms ease;
+  resize: none;
+  display: block;
+}
+
+.hero-contact-input::placeholder,
+.hero-contact-textarea::placeholder {
+  color: rgba(26, 26, 26, 0.32);
+  font-style: normal;
+}
+
+.hero-contact-input:hover,
+.hero-contact-textarea:hover {
+  border-color: rgba(26, 26, 26, 0.42);
+}
+
+.hero-contact-input:focus-visible,
+.hero-contact-textarea:focus-visible {
+  outline: none;
+  border-color: #1a1a1a;
+}
+
+/* Two-row textarea so the underline sits visibly close to the line
+   of typed text, not way down at the level of the send button. */
+.hero-contact-textarea {
+  min-height: 2.6em;
+  height: 2.6em;
+  overflow-y: auto;
+}
+
+.hero-contact-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.hero-contact-send {
+  padding: 8px 22px;
+  background: #1a1a1a;
+  color: #faf7f0;
+  border: 0.5px solid #1a1a1a;
+  border-radius: 999px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-style: normal;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 220ms ease, transform 180ms ease;
+}
+
+.hero-contact-send:hover:not(:disabled),
+.hero-contact-send:focus-visible:not(:disabled) {
+  background: #2a2532;
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.hero-contact-send:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.hero-contact-error {
+  margin: 0;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.84rem;
+  color: #a13b4a;
+}
+
+.hero-contact-sent {
+  padding: 22px 4px;
+  text-align: center;
+}
+
+.hero-contact-sent-line {
+  margin: 0;
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 1.4rem;
+  color: #1a1a1a;
+}
+
+.hero-contact-sent-sub {
+  margin: 6px 0 0;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.9rem;
+  color: rgba(26, 26, 26, 0.6);
+}
+
+/* Icon-only social row — same five buttons as the tech landing
+   (LinkedIn / GitHub / Email / Instagram / X). Glass-style pills
+   matching the rest of the hero's lightweight chrome. */
+.hero-contact-socials {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.hero-contact-social {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 0.5px solid rgba(26, 26, 26, 0.22);
+  background: rgba(255, 255, 255, 0.4);
+  color: rgba(26, 26, 26, 0.78);
+  text-decoration: none;
+  transition: color 200ms ease, background 200ms ease,
+    border-color 200ms ease, transform 200ms ease;
+}
+
+.hero-contact-social:hover,
+.hero-contact-social:focus-visible {
+  background: #1a1a1a;
+  color: #faf7f0;
+  border-color: #1a1a1a;
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.hero-contact-social svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.hero-contact-footer {
+  margin-top: auto;
+  padding-top: 12px;
+  text-align: center;
+}
+
+.hero-contact-footer p {
+  margin: 0;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.72rem;
+  color: rgba(26, 26, 26, 0.4);
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 720px) {
+  .hero-contact-drawer {
+    width: calc(100% - 16px);
+    padding: 16px 18px 12px;
+    max-height: 92svh;
+  }
+  .hero-contact-row {
+    grid-template-columns: 1fr;
+  }
+  .hero-about {
+    padding: 16px 12px 32px;
+    gap: 14px;
+  }
+  .hero-about-photo {
+    width: 76px;
+  }
+}
+

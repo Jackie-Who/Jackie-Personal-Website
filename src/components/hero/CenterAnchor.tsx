@@ -102,6 +102,17 @@ export default function CenterAnchor({ visualTakeover }: Props) {
     };
   }, [visualTakeover]);
 
+  // Each variant is rendered as a COMPLETE phrase (not split into
+  // prefix + tail). Two layers are stacked absolutely inside the
+  // .hero-description box, both centered. When the about-phase
+  // activates, the default phrase fades to 0 and the about phrase
+  // fades to 1 — both stay independently centered, so "a bit about
+  // me" reads as cleanly framed even though it's shorter than "a bit
+  // of everything…". This also avoids whitespace-collapse bugs from
+  // the prior prefix-split approach.
+  const defaultPhrase = DESCRIPTIONS[visualTakeover];
+  const aboutPhrase = 'a bit about me';
+
   return (
     <div className="hero-center">
       {/* Brain moved UP to HeroSection as its own hero-level layer
@@ -111,7 +122,12 @@ export default function CenterAnchor({ visualTakeover }: Props) {
           here; the brain floats behind them at a lower z-index. */}
       <CatMark className="hero-cat" winkRadius={52} />
       <h1 ref={sigRef} className="hero-signature">Jackie</h1>
-      <p className="hero-description">{DESCRIPTIONS[visualTakeover]}</p>
+      <p className="hero-description">
+        <span className="hero-description-default">{defaultPhrase}</span>
+        <span className="hero-description-about" aria-hidden="true">
+          {aboutPhrase}
+        </span>
+      </p>
     </div>
   );
 }
