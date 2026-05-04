@@ -4,6 +4,7 @@ import TopNav from './TopNav';
 import DotNav from './DotNav';
 import LandingSection from './LandingSection';
 import ProjectSection from './ProjectSection';
+import MoreProjectsComingSoon from './MoreProjectsComingSoon';
 import BlobCursor from './BlobCursor';
 import Toast from './Toast';
 import ReturnOverlay from './ReturnOverlay';
@@ -16,6 +17,7 @@ const TOAST_DURATION_MS = 1700;
 const sections = [
   { id: 'landing', label: 'Landing' },
   ...projects.map((p) => ({ id: p.id, label: p.title })),
+  { id: 'coming-soon', label: 'More projects' },
 ];
 
 export default function TechPortfolio() {
@@ -41,14 +43,14 @@ export default function TechPortfolio() {
   }, []);
 
   const handleBack = useCallback(() => {
-    // ClientRouter handles the DOM swap atomically — no sessionStorage
-    // pre-paint dance needed. The swipe overlay still plays its
-    // outgoing animation for the full 600ms, then we navigate and
-    // Astro's view transition slides the hero into place.
     setLeaving(true);
     window.setTimeout(() => {
       navigate('/');
     }, BACK_SWIPE_MS);
+  }, []);
+
+  const handleTop = useCallback(() => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
   const handleEmailCopied = useCallback(() => {
@@ -59,7 +61,7 @@ export default function TechPortfolio() {
     <div className="tech-app" data-leaving={leaving || undefined}>
       <BlobCursor />
       {leaving && <ReturnOverlay />}
-      <TopNav onBack={handleBack} />
+      <TopNav onBack={handleBack} onTop={handleTop} />
       <DotNav sections={sections} containerRef={scrollRef} />
 
       <div ref={scrollRef} className="tech-snap no-scrollbar">
@@ -83,6 +85,14 @@ export default function TechPortfolio() {
             <ProjectSection project={project} />
           </section>
         ))}
+
+        <section
+          id="coming-soon"
+          className="tech-snap-section tech-snap-section-coming"
+          aria-label="More projects coming soon"
+        >
+          <MoreProjectsComingSoon />
+        </section>
       </div>
 
       <Toast message={toast.message} visible={toast.visible} />

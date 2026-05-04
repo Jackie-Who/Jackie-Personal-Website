@@ -92,7 +92,15 @@ export default function CreativeBackground({ active, imageUrl, videoUrl }: Props
     <div className="hero-creative-bg" aria-hidden="true">
       <div className="hero-creative-img">
         {imageUrl ? (
-          <img src={imageUrl} alt="" className="hero-creative-img-real" />
+          <>
+            <img src={imageUrl} alt="" className="hero-creative-img-real" />
+            {/* Legibility scrim — radial vignette darkens the center
+                where the panel labels sit, fades to nothing at the
+                edges so the photo's composition still reads. Only
+                rendered on top of a real uploaded image; the
+                placeholder gradient already has uniform contrast. */}
+            <span className="hero-creative-img-scrim" />
+          </>
         ) : (
           <div className="hero-creative-img-inner">
             <span className="hero-creative-img-label">cover · live ensemble</span>
@@ -101,15 +109,27 @@ export default function CreativeBackground({ active, imageUrl, videoUrl }: Props
       </div>
       <div className="hero-creative-vid">
         {videoUrl ? (
-          <video
-            ref={videoRef}
-            className="hero-creative-vid-real"
-            src={videoUrl}
-            muted
-            loop
-            playsInline
-            preload="none"
-          />
+          <>
+            <video
+              ref={videoRef}
+              className="hero-creative-vid-real"
+              src={videoUrl}
+              muted
+              loop
+              playsInline
+              preload="none"
+            />
+            {/* Three overlay layers: an exposure dampener pulls the
+                bright cuts (sunny harbor, stage lights) down to a
+                consistent midtone via mix-blend-mode: multiply, a
+                film-grain SVG turbulence texture adds tactile
+                emulsion-like grain in the midtones, and a soft
+                vignette mirrors the image side's center-darkening
+                so the labels area stays consistent across hover. */}
+            <span className="hero-creative-vid-dampener" />
+            <span className="hero-creative-vid-grain" />
+            <span className="hero-creative-vid-scrim" />
+          </>
         ) : (
           <div className="hero-creative-vid-frame">
             <span className="hero-creative-vid-scanline" />

@@ -305,7 +305,16 @@
 
 .hero-panel-creative .hero-panel-sub,
 .hero-panel-creative .hero-panel-hint {
-  color: #d4a0cc;
+  /* Was #d4a0cc — bumped to a luminous near-white pink so the
+     labels keep their creative-side identity but actually read
+     against any photo. Text-shadow gives a legibility floor on
+     bright backgrounds (snow / overexposed video frames) without
+     looking like a 90s drop shadow: it's a soft 16px halo at low
+     opacity plus a tight 2px stroke for glyph-edge definition. */
+  color: #fce8f4;
+  text-shadow:
+    0 1px 16px rgba(0, 0, 0, 0.55),
+    0 0 2px rgba(0, 0, 0, 0.4);
   font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
   font-style: italic;
 }
@@ -366,6 +375,36 @@
   display: block;
 }
 
+/* Legibility scrim for the static image — a horizontally-elongated
+   band, NOT a circle/oval. The radii are 100% × 15% so the ellipse
+   reaches the full panel width while only spanning ~30% of the
+   panel height (15% radius up + 15% radius down from center).
+   Result: a wide horizontal stripe of darkening sitting exactly
+   where the labels render, with mountains at the top and forest
+   at the bottom of the photo reading clean and undarkened.
+   A faint bottom fade still keeps the "click to see more" hint
+   legible without contributing to the visible band itself. */
+.hero-creative-img-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse 100% 15% at 50% 50%,
+      rgba(0, 0, 0, 0.70) 0%,
+      rgba(0, 0, 0, 0.62) 30%,
+      rgba(0, 0, 0, 0.40) 65%,
+      rgba(0, 0, 0, 0.12) 92%,
+      rgba(0, 0, 0, 0) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(0, 0, 0, 0) 0%,
+      rgba(0, 0, 0, 0) 82%,
+      rgba(0, 0, 0, 0.20) 100%
+    );
+}
+
 /* Real uploaded video — same fill behavior; muted + looped for
    autoplay compatibility (handled in the JSX). */
 .hero-creative-vid-real {
@@ -373,6 +412,102 @@
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+/* ---- Video legibility stack (only rendered with a real <video>) ---- */
+
+/* 1. Exposure dampener — element + ::before so we get TWO blend
+      passes instead of one whisper. The element itself is a flat
+      black at 0.40 alpha (source-over): straight global darkening,
+      visible reduction in brightness on every cut. The ::before
+      overlays a multiply blend on top: multiply pulls highlights
+      down disproportionately faster than midtones, so a sunny or
+      overexposed cut gets crushed while a dim cut barely changes.
+      Together they're the "tame the footage" effect — visible
+      darkening + dynamic-range compression. */
+.hero-creative-vid-dampener {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* Flat layer at moderate alpha — provides the visible "the
+     footage has been color-graded down" feel without crushing
+     dark content into black. */
+  background: rgba(8, 6, 16, 0.22);
+}
+
+.hero-creative-vid-dampener::before {
+  /* Multiply pass — darker alpha but only multiplies, so it pulls
+     highlights down disproportionately while leaving midtones
+     mostly intact. Together with the flat layer above, the bright
+     (sunny harbor) cut gets tamed but the darker (concert, rainy
+     street) cuts keep their content visible. */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.40);
+  mix-blend-mode: multiply;
+}
+
+/* 2. Film grain — visible texture, not a whisper. Bumped opacity
+      from 0.12 → 0.30 and the SVG turbulence alpha from 0.55 → 0.85
+      so the grain is clearly perceptible. The "overlay" blend mode
+      mixes the noise into the image's midtones without flat
+      darkening — bright areas get speckled brighter, dark areas
+      darker. The hero-grain-shift animation cycles through 8
+      background-position offsets each 600ms, so the grain moves
+      like physical film emulsion instead of being a static dust
+      pattern. ~600 bytes inline. */
+.hero-creative-vid-grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.22;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.85 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size: 220px 220px;
+  animation: hero-grain-shift 0.6s steps(8) infinite;
+}
+
+@keyframes hero-grain-shift {
+  0%   { background-position: 0    0; }
+  12%  { background-position: -80  40; }
+  25%  { background-position: 60  -90; }
+  37%  { background-position: -110 -30; }
+  50%  { background-position: 90   100; }
+  62%  { background-position: -40  120; }
+  75%  { background-position: 130  -50; }
+  87%  { background-position: -90  -110; }
+  100% { background-position: 0    0; }
+}
+
+/* 3. Vignette + bottom fade matching the image side at the same
+      stronger numbers. Drives the "labels area is always darker"
+      anchor through every cut, no matter what's on screen. */
+.hero-creative-vid-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse 60% 55% at 50% 50%,
+      rgba(0, 0, 0, 0.42) 0%,
+      rgba(0, 0, 0, 0.20) 55%,
+      rgba(0, 0, 0, 0.05) 85%,
+      rgba(0, 0, 0, 0) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(0, 0, 0, 0.05) 0%,
+      rgba(0, 0, 0, 0) 25%,
+      rgba(0, 0, 0, 0) 60%,
+      rgba(0, 0, 0, 0.55) 100%
+    );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-creative-vid-grain {
+    animation: none;
+  }
 }
 
 .hero-creative-img-inner {

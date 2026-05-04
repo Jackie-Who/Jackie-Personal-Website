@@ -104,9 +104,53 @@
   pointer-events: none;
 }
 
-.tech-back,
-.tech-sig {
+.tech-nav-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   pointer-events: auto;
+}
+
+.tech-back,
+.tech-sig,
+.tech-top-toggle {
+  pointer-events: auto;
+}
+
+/* Square glass twin of .tech-back — icon-only return-to-top.
+   Mirrors the creative side's theme-toggle button so the two
+   pages feel symmetric. Same chrome, tech-tinted tokens. */
+.tech-top-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0.5px solid rgba(200, 220, 255, 0.12);
+  border-radius: 16px;
+  background: rgba(30, 42, 60, 0.28);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow:
+    inset 0 0.5px 0 rgba(200, 220, 255, 0.18),
+    0 8px 24px -10px rgba(0, 0, 0, 0.35);
+  color: var(--tech-text-muted);
+  cursor: pointer;
+  transition: color 220ms ease, border-color 220ms ease, background 220ms ease, transform 220ms ease;
+}
+
+.tech-top-toggle:hover,
+.tech-top-toggle:focus-visible {
+  color: var(--tech-signature);
+  border-color: rgba(122, 176, 216, 0.35);
+  background: rgba(90, 159, 212, 0.14);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.tech-top-toggle svg {
+  display: block;
 }
 
 .tech-back {
@@ -202,13 +246,39 @@
 }
 
 .tech-snap-section {
-  min-height: 100%;
+  /* Locked to small-viewport-height so mobile chrome (URL bar
+     show/hide) doesn't change the section height under the user's
+     fingers — that mismatch was producing the "extra scroll
+     before snap" bug on different aspect ratios. svh ignores
+     transient browser chrome. */
+  min-height: 100svh;
+  height: 100svh;
   scroll-snap-align: start;
-  padding: 80px clamp(32px, 5vw, 72px) 56px;
+  /* Force snap on every section boundary even when content
+     overflows slightly — combined with the locked height this
+     keeps every section exactly one viewport. */
+  scroll-snap-stop: always;
+  /* Padding scales with viewport height: at short laptops (700px)
+     this drops to ~42px top / 30px bottom, giving content the
+     room it needs without overflow. At tall desktops it lands
+     on the original 80 / 56 spacing. */
+  padding:
+    clamp(36px, 6vh, 80px)
+    clamp(32px, 5vw, 72px)
+    clamp(28px, 5vh, 56px);
   display: flex;
   flex-direction: column;
   justify-content: center;
   position: relative;
+  overflow: hidden;
+}
+
+/* The landing section in particular can grow long (resume content);
+   let it stretch on very short viewports rather than truncating. */
+.tech-snap-section-landing {
+  height: auto;
+  min-height: 100svh;
+  overflow: visible;
 }
 
 /* --------------------------------------------------------
@@ -1240,5 +1310,83 @@
   .tech-pj[data-layout='showcase'] .tech-pj-meta {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+/* ==========================================================
+   Coming Soon · Beyond the Code · Contact drawer
+   ==========================================================
+   Each beat below is its own snap-section so mandatory snap stays
+   honest. The Beyond timeline takes up several beats — the page
+   palette shifts as the data-beyond marker enters and leaves view.
+   ========================================================== */
+
+/* ----------------- Coming Soon (plain text) ----------------- */
+
+/* No bespoke bg here — inherits the tech-app's --tech-bg, so the
+   global blob cursor stays clearly visible behind the typing line. */
+.tech-snap-section-coming {
+  background: transparent;
+}
+
+.tech-coming {
+  /* Fill the section's content area so the absolutely-positioned
+     scroll hint resolves against this container (same trick the
+     landing section uses) — its bottom edge then sits above the
+     section's bottom padding, matching the breathing room of
+     "scroll for projects" on the landing exactly. */
+  position: relative;
+  flex: 1;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 36px;
+  text-align: center;
+}
+
+.tech-coming-line {
+  margin: 0;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  font-size: clamp(1.15rem, 2.4vw, 1.7rem);
+  letter-spacing: 0.01em;
+  color: var(--tech-text);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tech-coming-text {
+  display: inline-block;
+  white-space: pre;
+}
+
+/* Block caret — solid while typing, blinking once typing finishes
+   so the line reads like a live terminal cursor pausing for input. */
+.tech-coming-caret {
+  display: inline-block;
+  width: 0.62em;
+  height: 1.1em;
+  background: var(--tech-accent);
+  vertical-align: -0.18em;
+  transform: translateY(0.1em);
+}
+
+.tech-coming-caret.is-blinking {
+  animation: tech-coming-caret-blink 1s steps(2) infinite;
+}
+
+@keyframes tech-coming-caret-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tech-coming-caret,
+  .tech-coming-caret.is-blinking {
+    animation: none;
   }
 }
