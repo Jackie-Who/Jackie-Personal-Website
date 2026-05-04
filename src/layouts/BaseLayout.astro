@@ -12,7 +12,7 @@ interface Props {
 
 const {
   title = 'Jackie Hu',
-  description = "Yi Fei (Jackie) Hu — IT Support Engineer at Amazon, classical flutist, and photographer based in Langley, BC. A personal portfolio split between technology and creativity.",
+  description = "Yi Fei (Jackie) Hu — IT Engineer at Amazon, classical flutist, and photographer based in Vancouver, BC, Canada. A personal portfolio split between technology and creativity.",
   pathname = Astro.url.pathname,
   bodyClass = '',
   themeColor = '#fafafa',
@@ -67,11 +67,11 @@ const canonicalURL = new URL(pathname, Astro.site ?? Astro.url);
         '@type': 'Person',
         name: 'Yi Fei (Jackie) Hu',
         alternateName: 'Jackie Hu',
-        jobTitle: 'IT Support Engineer',
+        jobTitle: 'IT Engineer',
         worksFor: { '@type': 'Organization', name: 'Amazon' },
         address: {
           '@type': 'PostalAddress',
-          addressLocality: 'Langley',
+          addressLocality: 'Vancouver',
           addressRegion: 'BC',
           addressCountry: 'CA',
         },

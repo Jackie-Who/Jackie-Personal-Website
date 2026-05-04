@@ -38,7 +38,7 @@ export interface ResumeLink {
 
 export const identity = {
   name: 'Jackie',
-  title: 'IT Support Engineer / AI Evaluation / Full-Stack Builder',
+  title: 'IT Engineer / AI Evaluation / Full-Stack Builder',
 };
 
 export const intro = {
