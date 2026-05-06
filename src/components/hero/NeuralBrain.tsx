@@ -952,15 +952,112 @@ export default function NeuralBrain({ takeover, nav }: Props) {
     };
     window.addEventListener('resize', onResize);
 
+    // ------------------------------------------------------------
+    // Visibility-aware rAF gating.
+    //
+    // The brain's canvas redraws ~60 fps continuously while the
+    // component is mounted. Three states make that work wasted:
+    //
+    //  1. Tab is hidden (alt-tab, switch tab) — `document.visibilityState`
+    //  2. About / contact phase active — `.hero-brain-layer` opacity:0
+    //     hides the canvas, but the rAF kept drawing into it
+    //  3. Brain canvas scrolled out of viewport — extreme on this site
+    //     since the hero IS the viewport, but covered by IO as defense
+    //     in depth (e.g. very small screens with URL-bar visibility
+    //     changes, dev-tools open shrinking the canvas to 0×0).
+    //
+    // We DO NOT pause during expanding-* / loading-* nav states: the
+    // click-burst particles need to render through the 420 ms canvas
+    // opacity fade-out for the "brain bursts before the page swipes"
+    // beat to read.
+    // ------------------------------------------------------------
+    const heroApp = canvas.closest('.hero-app') as HTMLElement | null;
+    let tabHidden = document.visibilityState === 'hidden';
+    let aboutHidden = (heroApp?.getAttribute('data-about-phase') ?? 'hero') !== 'hero';
+    let onScreen = true; // optimistic until IO says otherwise
+
+    const shouldRun = (): boolean => !tabHidden && !aboutHidden && onScreen;
+
+    const start = () => {
+      if (rafId) return;
+      if (reduced) return; // reduced-motion never animates
+      if (!shouldRun()) return;
+      rafId = window.requestAnimationFrame(frame);
+    };
+    const stop = () => {
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
+        rafId = 0;
+      }
+    };
+
+    const onVisibility = () => {
+      const next = document.visibilityState === 'hidden';
+      if (next === tabHidden) return;
+      tabHidden = next;
+      if (tabHidden) stop();
+      else start();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    // Watch hero-app's data-about-phase attribute. When it leaves
+    // 'hero' the brain layer fades to opacity 0 via CSS — pausing
+    // the rAF leaves the LAST drawn frame frozen on the canvas,
+    // which the CSS opacity transition fades out smoothly. On
+    // return to 'hero' we restart immediately so the canvas is
+    // already animating during the fade-in.
+    const aboutObserver: MutationObserver | null = heroApp
+      ? new MutationObserver((muts) => {
+          for (const m of muts) {
+            if (m.attributeName !== 'data-about-phase') continue;
+            const next = (heroApp.getAttribute('data-about-phase') ?? 'hero') !== 'hero';
+            if (next === aboutHidden) continue;
+            aboutHidden = next;
+            if (aboutHidden) stop();
+            else start();
+          }
+        })
+      : null;
+    aboutObserver?.observe(heroApp!, {
+      attributes: true,
+      attributeFilter: ['data-about-phase'],
+    });
+
+    // Geometric-visibility safety net. Pauses the loop if the canvas
+    // is somehow scrolled out of view or sized to zero. Not the
+    // primary signal, but cheap and prevents obscure regressions.
+    const io =
+      typeof IntersectionObserver !== 'undefined'
+        ? new IntersectionObserver(
+            (entries) => {
+              for (const e of entries) {
+                const next = e.isIntersecting;
+                if (next === onScreen) continue;
+                onScreen = next;
+                if (!onScreen) stop();
+                else start();
+              }
+            },
+            { rootMargin: '64px' },
+          )
+        : null;
+    io?.observe(canvas);
+
     if (!reduced) {
       if (!isMobile) {
         window.addEventListener('pointermove', onPointerMove, { passive: true });
       }
-      rafId = window.requestAnimationFrame(frame);
+      // Initial kickoff goes through start() so it respects the same
+      // gating logic as later restarts. Equivalent to the old direct
+      // requestAnimationFrame call when shouldRun() is true at mount.
+      start();
     }
 
     return () => {
-      if (rafId) window.cancelAnimationFrame(rafId);
+      stop();
+      document.removeEventListener('visibilitychange', onVisibility);
+      aboutObserver?.disconnect();
+      io?.disconnect();
       window.removeEventListener('resize', onResize);
       window.removeEventListener('pointermove', onPointerMove);
     };

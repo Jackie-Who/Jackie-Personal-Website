@@ -8,6 +8,11 @@ interface Props {
   pathname?: string;
   bodyClass?: string;
   themeColor?: string;
+  /** Optional override for the social-share image. Defaults to the
+   *  site-wide /og-image.png (1200×630 dark-navy card with
+   *  "Jackie Hu" + "Engineering / Creative"). Provide a per-page
+   *  override if you ship a project-specific card. */
+  ogImage?: string;
 }
 
 const {
@@ -16,9 +21,14 @@ const {
   pathname = Astro.url.pathname,
   bodyClass = '',
   themeColor = '#fafafa',
+  ogImage = '/og-image.png',
 } = Astro.props;
 
 const canonicalURL = new URL(pathname, Astro.site ?? Astro.url);
+// Absolute og:image URL — Twitter and LinkedIn require absolute URLs;
+// Facebook is more lenient but happy with one. Built relative to the
+// canonical base so previews work on preview deploys too.
+const ogImageURL = new URL(ogImage, Astro.site ?? Astro.url);
 ---
 
 <!doctype html>
@@ -40,22 +50,40 @@ const canonicalURL = new URL(pathname, Astro.site ?? Astro.url);
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonicalURL} />
     <meta property="og:site_name" content="Jackie Hu" />
+    <meta property="og:locale" content="en_CA" />
+    <meta property="og:image" content={ogImageURL} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Jackie Hu — Engineering / Creative portfolio" />
+    <!-- Twitter — summary_large_image rendering needs the same URL.
+         No twitter:site / twitter:creator since there's no associated
+         handle; declaring empty strings is worse than omitting. -->
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageURL} />
+    <meta name="twitter:image:alt" content="Jackie Hu — Engineering / Creative portfolio" />
 
     <!-- Favicon placeholder -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
-    <!-- Font loading — display=swap keeps text visible during load -->
+    <!-- Font loading — display=swap keeps text visible during load.
+         Only the 5 fonts referenced from CSS at base render time are
+         loaded eagerly. The 24 fancy display / cursive fonts used
+         exclusively by the signature font-cycle on creative hover
+         are loaded LAZILY by CenterAnchor.tsx the first time a
+         visitor enters the creative side. Saves ~400 KB of font
+         requests on first paint for visitors who never hover. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="preload"
       as="style"
-      href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Alex+Brush&family=Bodoni+Moda:wght@500&family=Cardo&family=Caveat:wght@500&family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=DM+Serif+Display&family=Dancing+Script:wght@500&family=Forum&family=Fraunces:wght@500&family=Great+Vibes&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=Italiana&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&family=Kaushan+Script&family=Lobster&family=Marcellus&family=Parisienne&family=Pinyon+Script&family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&family=Sacramento&family=Satisfy&family=Tangerine:wght@700&family=Yellowtail&family=Yeseva+One&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&display=swap"
     />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Alex+Brush&family=Bodoni+Moda:wght@500&family=Cardo&family=Caveat:wght@500&family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=DM+Serif+Display&family=Dancing+Script:wght@500&family=Forum&family=Fraunces:wght@500&family=Great+Vibes&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=Italiana&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&family=Kaushan+Script&family=Lobster&family=Marcellus&family=Parisienne&family=Pinyon+Script&family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&family=Sacramento&family=Satisfy&family=Tangerine:wght@700&family=Yellowtail&family=Yeseva+One&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&display=swap"
     />
 
     <!-- Structured data: Person schema -->

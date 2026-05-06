@@ -1,0 +1,16 @@
+# jackiehu.dev — robots policy
+#
+# Public surfaces are crawlable. The CMS surface and API endpoints
+# are excluded — they're authenticated and serve no SEO value, and
+# crawler hits to /api/* would just generate cold-start invocations
+# on the Vercel function. Login page is excluded for the same reason.
+
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /admin
+Disallow: /api/
+Disallow: /login
+
+# Sitemap (generated at build time by @astrojs/sitemap).
+Sitemap: https://jackiehu.dev/sitemap-index.xml

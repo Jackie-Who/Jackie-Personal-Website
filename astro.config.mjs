@@ -2,6 +2,7 @@ import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import tailwind from '@astrojs/tailwind';
 import vercel from '@astrojs/vercel';
+import sitemap from '@astrojs/sitemap';
 
 /**
  * Astro 5 dropped the `hybrid` mode — `static` now supports per-page
@@ -10,6 +11,13 @@ import vercel from '@astrojs/vercel';
  * serverless function for routes marked non-prerender (admin + api).
  */
 export default defineConfig({
+  // Canonical site URL. Used for:
+  //  - BaseLayout's <link rel="canonical"> and og:url
+  //  - @astrojs/sitemap absolute URLs
+  // Without this, Astro builds canonical URLs from the request host —
+  // so Vercel preview URLs (jackiehu-xxx.vercel.app) would leak into
+  // the search index when crawled.
+  site: 'https://jackiehu.dev',
   output: 'static',
   adapter: vercel(),
   /**
@@ -30,6 +38,14 @@ export default defineConfig({
   integrations: [
     react(),
     tailwind({ applyBaseStyles: false }),
+    // Sitemap auto-generated from prerendered routes at build time.
+    // Excludes admin / api / login routes — those are private surfaces
+    // that shouldn't appear in search results. The remaining public
+    // routes (`/`, `/tech`, `/creative`) are emitted to /sitemap-index.xml.
+    sitemap({
+      filter: (page) =>
+        !page.includes('/admin') && !page.includes('/api') && !page.includes('/login'),
+    }),
   ],
   server: {
     port: 4321,
