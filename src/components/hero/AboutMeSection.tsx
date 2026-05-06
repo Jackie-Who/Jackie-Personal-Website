@@ -34,9 +34,11 @@ export default function AboutMeSection({ phase }: Props) {
     >
       <div className="hero-about-photo-wrap">
         <img
-          src="/about-jackie.jpg"
+          src="/about-jackie.webp"
           alt="Jackie Hu"
           className="hero-about-photo"
+          width="224"
+          height="236"
           loading="lazy"
           decoding="async"
         />

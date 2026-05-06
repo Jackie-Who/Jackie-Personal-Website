@@ -45,6 +45,14 @@ export default function PhotoGallery({ photos, onOpen }: Props) {
                     src={p.url}
                     alt={p.title}
                     className="creative-photo-tile-img"
+                    /* Explicit dims help the browser reserve the right
+                       row height before the image header arrives, on
+                       top of the CSS aspect-ratio constraint. Use a
+                       canonical 800-wide projected from the photo's
+                       stored aspectRatio so the ratio matches what
+                       CSS will compute. */
+                    width="800"
+                    height={Math.round(800 / (p.aspectRatio ?? 1.5))}
                     loading="lazy"
                     decoding="async"
                   />

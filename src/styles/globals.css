@@ -173,3 +173,61 @@ button {
   background: rgba(90, 159, 212, 0.3);
   color: inherit;
 }
+
+/* ---------------------------------------------------------
+   Metric-matched fallback fonts for layout-stable swap-in.
+
+   Problem: when Inter / Playfair Display load over the network,
+   the browser swaps from the system fallback (Arial / Times New
+   Roman) to the web font. The two fonts have different metrics
+   (cap height, x-height, advance widths), so every paragraph
+   re-flows — that's a layout shift, and it's the largest CLS
+   contributor on a font-heavy page.
+
+   Solution: declare two extra @font-face entries that point at
+   the LOCAL system fallbacks but apply size / ascent / descent
+   overrides to make their metrics match the web font as closely
+   as possible. Reference these fallbacks RIGHT AFTER the web
+   font in the family stack. Result: while the web font is
+   loading, text renders in the metric-matched fallback; when
+   the web font arrives, the swap is invisible because the box
+   dimensions are already correct.
+
+   Override values from popular metric-matching tables (next/font
+   pattern, fontaine). These are good-enough averages — exact
+   per-glyph perfection isn't necessary for CLS to drop to zero.
+--------------------------------------------------------- */
+
+@font-face {
+  font-family: 'Inter Fallback';
+  src: local('Arial');
+  size-adjust: 107.4%;
+  ascent-override: 90%;
+  descent-override: 22.5%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Playfair Fallback';
+  src: local('Times New Roman');
+  size-adjust: 110%;
+  ascent-override: 96%;
+  descent-override: 27%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono Fallback';
+  src: local('Courier New');
+  size-adjust: 99%;
+  ascent-override: 85%;
+  descent-override: 20%;
+  line-gap-override: 0%;
+}
+
+/* Default body font stack: web font → metric-matched fallback →
+   system → generic. The fallback layer is the new piece — keeps
+   layout stable through the load. */
+html, body {
+  font-family: 'Inter', 'Inter Fallback', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}

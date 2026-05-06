@@ -22,7 +22,17 @@
   height: 100svh; /* small viewport — avoids mobile URL bar jump */
   overflow: hidden;
   background: var(--neutral-bg);
-  transition: opacity 600ms ease, filter 400ms ease;
+  /* Smooth bg transition matched to the panel's bg / flex animations
+     so the .hero-app fill (which sits behind the panels) doesn't
+     instantly flip color when takeover changes. Without this, any
+     sub-pixel gap during the panel flex transition briefly exposes
+     the new bg color (cream on neutral, magenta on creative, blue
+     on tech) — which read as a flash of white-then-magenta during
+     fast swipes. */
+  transition:
+    opacity 600ms ease,
+    filter 400ms ease,
+    background 500ms ease;
   font-family: 'Inter', system-ui, sans-serif;
 }
 
@@ -65,7 +75,40 @@
   inset: 0;
   display: flex;
   pointer-events: none;
-  z-index: 0;
+  /* Intentionally NO z-index here. The panels' descendants (notably
+     .hero-panel-labels at z-index: 5) need to compete in .hero-app's
+     stacking context so they can sit ABOVE .hero-edge-shield (z:3).
+     Adding z-index here would trap them in a panel-local context. */
+}
+
+/* Right-edge shield — a permanent dark-navy strip covering the far
+   ~12 vw of the viewport in the tech panel's own bg color (#080c16).
+   Lives as a sibling of .hero-panels in .hero-app, at z-index: 3 so
+   it sits ABOVE the panels (no z-index → 0), code-wrap (z:1), and
+   brain (z:2), masking any transient white/magenta bg flashes that
+   leak through the right edge during fast takeover swipes. The
+   .hero-panel-labels are bumped to z-index: 5 (and freed from
+   .hero-panels' stacking context) so the "Projects / Experience"
+   copy stays visibly above the shield. */
+.hero-edge-shield {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 10vw;
+  background: #080c16;
+  pointer-events: none;
+  z-index: 3;
+  transition: opacity 320ms ease;
+}
+
+/* During a side expansion (click → page swipe), the chosen panel
+   takes over the entire viewport. Hide the shield so its dark-navy
+   color doesn't fight the creative-side's purple bg during the
+   creative-page expansion. */
+.hero-app[data-expanding] .hero-edge-shield,
+.hero-app[data-returning] .hero-edge-shield {
+  opacity: 0;
 }
 
 .hero-panel {
@@ -278,7 +321,12 @@
    smaller "click to see more" hint that brightens on hover. */
 .hero-panel-labels {
   position: relative;
-  z-index: 3;
+  /* z-index: 5 sits ABOVE .hero-edge-shield (z:3), brain (z:2), and
+     code-wrap (z:1). Because .hero-panels has no z-index of its own,
+     this z-index competes in .hero-app's stacking context — so the
+     "Projects / Experience" copy reads above the right-edge shield
+     even though it's nested inside the tech panel. */
+  z-index: 5;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -751,17 +799,27 @@
   inset: 0;
   padding: 0;
   background: #fafafa;
-  /* Multi-column layout — each column 160 px wide, browser chooses
-     the count to fill the viewport. `column-fill: auto` fills the
-     first column top-to-bottom before flowing to the next, which
-     gives the most natural newspaper feel. */
-  columns: 160px;
-  column-gap: 14px;
+  /* Multi-column layout, viewport-proportional.
+     Column width 7.2 vw + gap 1 vw = 8.2 vw per column-pair, so the
+     viewport (100 vw) yields ~12 total columns at EVERY resolution
+     and the visible center panel (width 23.6 vw) always shows ~3.
+     Switching from a pixel-based column width (the prior 160 px)
+     fixes the bug where 4K/8K monitors packed 5+ visible columns
+     while 1366 px laptops showed only 2. */
+  columns: 7.2vw;
+  column-gap: 1vw;
   column-fill: auto;
   /* Cormorant for body, Cardo as backup — both serve the
      scholarly-journal aesthetic. Falls back to Georgia / serif. */
   font-family: 'Cormorant Garamond', 'Cardo', Georgia, serif;
-  font-size: clamp(0.48rem, 0.6vw, 0.62rem);
+  /* Proportional font sizing. On a 1920 px viewport this is 10.56 px;
+     on a 4K monitor 21.12 px; on 8K 42.24 px. Because both column
+     width AND font scale with vw, the column-relative reading
+     density (chars per line, lines per column) stays constant —
+     the layout looks identical on every resolution, just bigger
+     pixels. The 0.6 rem floor prevents sub-legible glyphs on small
+     viewports above the 720 px hide breakpoint. */
+  font-size: max(0.6rem, 0.55vw);
   line-height: 1.28;
   text-align: justify;
   hyphens: auto;
@@ -798,7 +856,10 @@
 .hero-academic-refs {
   margin: 8px 0 0;
   padding-left: 12px;
-  font-size: clamp(0.4rem, 0.52vw, 0.5rem);
+  /* Same proportional model as the body text — refs scale with vw
+     so they hold a consistent visual weight relative to the body
+     across resolutions. Floor at 0.5 rem for legibility. */
+  font-size: max(0.5rem, 0.45vw);
   line-height: 1.22;
   color: rgba(40, 40, 50, 0.18);
 }
@@ -1053,11 +1114,13 @@
   color: #1a1a1a;
   margin: 0;
   white-space: nowrap;
-  /* Locked height so the signature occupies the same vertical slot
-     regardless of which state's (smaller) font is active — the cat,
-     brain, and description above and below it don't shift when the
-     font size changes on hover. */
+  /* Locked height + width so cycling through 25 different fonts on
+     creative hover can't push surrounding content. Each font has
+     different metrics; letterforms still shift visually inside the
+     box (that's the point — the "shimmer"), but the box itself
+     stays a fixed slot, so neighboring elements never move. */
   height: clamp(3rem, 5.2vw, 4.3rem);
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1068,6 +1131,9 @@
      bespoke personal-brand feel. */
   font-family: 'Instrument Serif', 'DM Serif Display', Georgia, serif;
   opacity: 1;
+  /* Belt + suspenders: contain layout/paint so any font-cycle
+     compositing stays scoped to the signature box. */
+  contain: layout paint;
 }
 
 .hero-app[data-visual='creative'] .hero-signature {
@@ -1129,18 +1195,22 @@
      rules below override with palette colors. */
   color: #1a1a1a;
   transition: opacity 200ms ease, color 500ms ease;
-  font-family: 'Inter', system-ui, sans-serif;
+  /* 'Inter Fallback' is the metric-matched system-font defined in
+     globals.css. While Inter is loading from Google Fonts, the
+     fallback renders with adjusted metrics so the description box
+     dimensions stay stable through the swap-in. */
+  font-family: 'Inter', 'Inter Fallback', system-ui, sans-serif;
   opacity: 1;
 }
 
 .hero-app[data-visual='creative'] .hero-description {
-  font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
+  font-family: 'Playfair Display', 'Playfair Fallback', 'Cormorant Garamond', Georgia, serif;
   font-style: italic;
   color: #8a6080;
 }
 
 .hero-app[data-visual='tech'] .hero-description {
-  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'JetBrains Mono Fallback', 'Fira Code', 'Courier New', monospace;
   color: #5080a0;
 }
 
@@ -1901,5 +1971,38 @@
   .hero-about-photo {
     width: 76px;
   }
+}
+
+/* ----------------------------------------------------------
+   Idle animation pausing.
+   Pauses infinite CSS animations while their host element is
+   hidden, so the GPU compositor isn't recomputing layers
+   every frame for invisible motion. Pure CPU/GPU saving with
+   no visible effect: a paused animation on an opacity:0
+   element looks identical to a running one. Resume keeps the
+   animation phase, so re-entering the visible state shows
+   continuous motion (no hard reset).
+   ---------------------------------------------------------- */
+
+/* Creative-side video overlays. The .hero-creative-vid wrapper
+   is opacity:0 outside data-takeover='creative' (see line ~584),
+   but its child animations (grain shift, scanline, spectrum
+   bars) keep ticking. Pause them while not in creative
+   takeover. */
+.hero-app:not([data-takeover='creative']) .hero-creative-vid-grain,
+.hero-app:not([data-takeover='creative']) .hero-creative-vid-scanline,
+.hero-app:not([data-takeover='creative']) .hero-creative-vid-bar {
+  animation-play-state: paused;
+}
+
+/* Phase-hint bob (the "↓" arrow under "about me" / "contact me"
+   at the bottom of the hero). Hidden during takeover, expansion,
+   and the contact-drawer-open phase via opacity:0. Pause the
+   bobbing transform while invisible. */
+.hero-app[data-takeover='creative'] .hero-phase-hint-arrow,
+.hero-app[data-takeover='tech'] .hero-phase-hint-arrow,
+.hero-app[data-expanding] .hero-phase-hint-arrow,
+.hero-app[data-about-phase='contact'] .hero-phase-hint-arrow {
+  animation-play-state: paused;
 }
 

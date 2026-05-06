@@ -44,11 +44,17 @@ const REFS: string[] = [
   `Hutchison RM, Womelsdorf T, Allen EA, et al. <em>Dynamic functional connectivity: promise, issues, and interpretations.</em> NeuroImage. 2013;80:360–378.`,
 ];
 
-/** How many times to repeat the passage. Sized so the multi-column
- *  layout fills top-to-bottom on a 1920×1080 viewport; extra repeats
- *  on shorter / narrower displays just overflow and clip via
- *  `overflow: hidden`. Not visible anyway — decorative only. */
-const REPEAT_COUNT = 6;
+/** How many times to repeat the passage. Sized to fill the
+ *  multi-column layout top-to-bottom even on tall aspect ratios
+ *  (4:3, portrait tablets) where each column needs ~190+ lines. At
+ *  ~240 lines per cycle and ~12 columns × 80–190 lines per column
+ *  needed depending on aspect, 10 cycles guarantees full coverage.
+ *  Extra rows clip invisibly via `overflow: hidden` on the parent.
+ *
+ *  The CSS font-size is proportional to viewport width, so the
+ *  cycle count works identically at 1080p / 4K / 8K — only the
+ *  aspect ratio changes how many lines a column holds. */
+const REPEAT_COUNT = 10;
 
 export default function AcademicBackdrop() {
   return (

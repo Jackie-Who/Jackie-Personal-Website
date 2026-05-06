@@ -297,6 +297,17 @@ export default function HeroSection({ creativeImageUrl, creativeVideoUrl }: Prop
         }
       />
 
+      {/* Right-edge shield. A permanent dark-navy strip covering the
+          far ~10vw of the viewport in the tech panel's bg color
+          (#080c16). Sits at z-index 3 — above the panels, code-wrap
+          (z:1), brain (z:2), and any transient flashes that leak
+          during fast takeover swipes. The .hero-panel-labels are
+          bumped to z-index 5 + take their stacking context out of
+          .hero-panels (see hero.css), so the "Projects / Experience"
+          copy stays visibly above the shield. Hidden during page
+          expansion / return so it doesn't fight the full-page swipe. */}
+      <div className="hero-edge-shield" aria-hidden="true" />
+
       <CodeBackground typing={takeover === 'tech'} />
 
       {/* Brain layer — sits between the code background (z:1) and

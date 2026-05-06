@@ -396,6 +396,13 @@ export default function PhotoExpanded({ photos, startId, onClose }: Props) {
                     src={item.photo.url}
                     alt={item.photo.title}
                     className="creative-expanded-img"
+                    /* Explicit dims so each section reserves its
+                       intrinsic image footprint before the bytes
+                       land — same canonical 1600-wide projection
+                       trick used in the gallery, halved for the
+                       blur wall's pre-baked size. */
+                    width="1600"
+                    height={Math.round(1600 / (item.photo.aspectRatio ?? 1.5))}
                     decoding="async"
                   />
                 ) : null}
