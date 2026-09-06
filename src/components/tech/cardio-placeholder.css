@@ -61,13 +61,38 @@
 
 .surfer-sec-wip {
   margin: 30px 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
   font-family: 'JetBrains Mono', 'Courier New', monospace;
   font-size: clamp(0.78rem, 2.4vw, 0.92rem);
   color: #c3d3e8;
 }
 
-/* Note sits upper-left, arrow curves down-right into the button. */
+.surfer-sec-warn {
+  width: 1.15em;
+  height: 1.15em;
+  flex: none;
+  color: #fbbf24;
+}
+
+/* ---- CTA: note → arrow → button ----------------------------------
+   Geometry, all derived from the arrow SVG's own viewBox (220 x 110):
+
+     tail vertex  x = 10   ->  4.545% of the arrow's width
+     head vertex  x = 193  -> 87.727% of the arrow's width
+
+   .surfer-sec-lead is exactly the arrow's width and is shifted by
+   (50% - 87.727%) = -37.727%, which puts the arrowhead precisely on
+   the container's centre line — i.e. the middle of the button, which
+   stays centred and does not move. The note is then absolutely
+   positioned off the left of that block so its right edge lands on
+   the arrow's tail.
+   ------------------------------------------------------------------ */
 .surfer-sec-cta {
+  --arrow-w: clamp(96px, 24vw, 130px);
+  --arrow-tail-x: 4.545%;
+  --arrow-head-x: 87.727%;
   position: relative;
   margin-top: 24px;
   display: flex;
@@ -76,23 +101,37 @@
   gap: 4px;
 }
 
+.surfer-sec-lead {
+  position: relative;
+  width: var(--arrow-w);
+  /* Room for the note, which is positioned into this padding. */
+  padding-top: 1.75em;
+  transform: translateX(calc(50% - var(--arrow-head-x)));
+}
+
+.surfer-sec-arrow {
+  display: block;
+  width: 100%;
+  height: auto;
+  color: #ff4fa3;
+  opacity: 0.95;
+}
+
 .surfer-sec-note {
+  position: absolute;
+  top: 0;
+  /* Right edge of the text meets the arrow's tail, minus a small gap
+     so the glyphs don't collide with the stroke. */
+  right: calc(100% - var(--arrow-tail-x) + 6px);
   margin: 0;
-  align-self: flex-start;
+  white-space: nowrap;
+  text-align: right;
   font-family: 'Caveat', 'Segoe Script', cursive;
   font-size: clamp(1.15rem, 3.4vw, 1.5rem);
   line-height: 1.2;
   color: #ffe0f0;
   transform: rotate(-3deg);
-}
-
-.surfer-sec-arrow {
-  width: clamp(96px, 24vw, 130px);
-  height: auto;
-  align-self: center;
-  margin: -2px 0 2px 42px;
-  color: #ff4fa3;
-  opacity: 0.95;
+  transform-origin: 100% 100%;
 }
 
 .surfer-sec-btn {
@@ -133,6 +172,73 @@
 .surfer-sec-btn:active {
   transform: translateY(2px);
   box-shadow: 0 1px 0 #06111f;
+}
+
+/* Platform requirement, directly under the CTA. */
+.surfer-sec-platform {
+  margin: 12px 0 0;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.03em;
+  line-height: 1.5;
+  color: rgba(199, 220, 240, 0.62);
+  text-align: center;
+}
+
+/* Trademark + copyright, pinned to the bottom of the snap section.
+   Absolute so it sits at the section's foot without pulling the
+   centred content block upward. */
+.surfer-sec-legal {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(14px, 2.4vh, 26px);
+  transform: translateX(-50%);
+  width: min(760px, calc(100% - 48px));
+  margin: 0;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 0.56rem;
+  line-height: 1.65;
+  letter-spacing: 0.01em;
+  color: rgba(190, 210, 235, 0.42);
+  text-align: center;
+  text-wrap: balance;
+}
+
+/* ---- Narrow screens ----------------------------------------------
+   The offset lead block hangs the note far to the left of centre,
+   which overflows once the viewport gets tight. Fall back to a
+   simple centred stack: note above, arrow below it, button under
+   both. Same reading order, no horizontal overflow.
+   ------------------------------------------------------------------ */
+@media (max-width: 620px) {
+  .surfer-sec-lead {
+    width: auto;
+    padding-top: 0;
+    transform: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .surfer-sec-note {
+    position: static;
+    white-space: normal;
+    text-align: center;
+    align-self: flex-start;
+    transform: rotate(-3deg);
+    transform-origin: center;
+  }
+
+  .surfer-sec-arrow {
+    width: clamp(96px, 24vw, 130px);
+    margin-left: 42px;
+  }
+}
+
+@media (max-height: 700px) {
+  .surfer-sec-legal {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
