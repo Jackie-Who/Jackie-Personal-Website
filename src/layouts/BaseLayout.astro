@@ -114,6 +114,10 @@ const ogImageURL = new URL(ogImage, Astro.site ?? Astro.url);
          plays its outgoing animation and swaps DOM atomically with
          the hero's first paint. No white flash. -->
     <ClientRouter />
+
+    <!-- Per-page head additions (page-specific fonts, preloads).
+         Pages opt in with slot="head"; those that don't are unaffected. -->
+    <slot name="head" />
   </head>
   <body class={bodyClass}>
     <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:text-black focus:px-3 focus:py-1 focus:rounded">
