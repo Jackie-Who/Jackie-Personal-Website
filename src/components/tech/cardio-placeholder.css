@@ -105,7 +105,7 @@
      tail. Adjust in whole px; anything from 0 to ~40px is sensible.
      ---------------------------------------------------------------- */
   --note-nudge-x: 0px;
-  --note-nudge-y: 0px;
+  --note-nudge-y: 50px;
 
   position: relative;
   margin-top: 24px;
