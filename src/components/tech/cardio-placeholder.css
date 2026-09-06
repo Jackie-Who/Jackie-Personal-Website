@@ -93,6 +93,20 @@
   --arrow-w: clamp(96px, 24vw, 130px);
   --arrow-tail-x: 4.545%;
   --arrow-head-x: 87.727%;
+
+  /* ---- TUNING KNOBS for the handwritten note ---------------------
+     Both move the note only; the arrow and the button never move, and
+     every phrase shifts together so they still all end on the same x.
+
+       --note-nudge-x : bigger number = further LEFT
+       --note-nudge-y : bigger number = further DOWN
+
+     Defaults below place the note slightly down-left of the arrow's
+     tail. Adjust in whole px; anything from 0 to ~40px is sensible.
+     ---------------------------------------------------------------- */
+  --note-nudge-x: 16px;
+  --note-nudge-y: 7px;
+
   position: relative;
   margin-top: 24px;
   display: flex;
@@ -104,8 +118,9 @@
 .surfer-sec-lead {
   position: relative;
   width: var(--arrow-w);
-  /* Room for the note, which is positioned into this padding. */
-  padding-top: 1.75em;
+  /* Room for the note, which is positioned into this padding. Scales
+     with --note-nudge-y so pushing the note down can't clip it. */
+  padding-top: calc(1.75em + var(--note-nudge-y));
   transform: translateX(calc(50% - var(--arrow-head-x)));
 }
 
@@ -124,10 +139,10 @@
    the last glyph fixed under the tilt. */
 .surfer-sec-note {
   position: absolute;
-  top: 0;
-  /* Right edge of the text meets the arrow's tail, minus a small gap
-     so the glyphs don't collide with the stroke. */
-  right: calc(100% - var(--arrow-tail-x) + 6px);
+  /* Offsets from the arrow's tail. See the tuning knobs on
+     .surfer-sec-cta above — those are the two values to edit. */
+  top: var(--note-nudge-y);
+  right: calc(100% - var(--arrow-tail-x) + var(--note-nudge-x));
   margin: 0;
   white-space: nowrap;
   text-align: right;
