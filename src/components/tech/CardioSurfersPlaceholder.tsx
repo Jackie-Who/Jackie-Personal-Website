@@ -1,6 +1,32 @@
+import { useEffect, useRef, useState } from 'react';
 import './cardio-placeholder.css';
 
 const REPO = 'https://github.com/Jackie-Who/cardio-surfers';
+
+/**
+ * Aside scribbled above the arrow. One is picked at random each time the
+ * section comes into view, so the page has a different voice on a
+ * revisit. The note is right-anchored in CSS — every phrase ends at the
+ * arrow's tail and grows leftward — so length never moves the arrow.
+ */
+const NOTE_PHRASES = [
+  'yes, you actually have to run',
+  'no couch mode',
+  'go on, try it',
+  'see if you can last',
+  'try it yourself',
+  'warning: real cardio',
+] as const;
+
+/** Pick a phrase that isn't the one already showing. */
+function pickPhrase(current: string | null): string {
+  if (NOTE_PHRASES.length < 2) return NOTE_PHRASES[0];
+  let next = current;
+  while (next === current) {
+    next = NOTE_PHRASES[Math.floor(Math.random() * NOTE_PHRASES.length)];
+  }
+  return next as string;
+}
 
 /**
  * Cardio Surfers — placeholder section.
@@ -20,7 +46,26 @@ const REPO = 'https://github.com/Jackie-Who/cardio-surfers';
  * its right edge meeting the tail. Both constants live in the CSS next
  * to the rules that use them.
  */
-export default function CardioSurfersPlaceholder() {
+interface Props {
+  /** Bumped by TechPortfolio each time this section takes the viewport.
+   *  Every change re-rolls the note. Also rolls once on mount, so a
+   *  direct /surfer load never paints an empty line. */
+  rollToken?: number;
+}
+
+export default function CardioSurfersPlaceholder({ rollToken = 0 }: Props = {}) {
+  const phraseRef = useRef<string | null>(null);
+  // Starts null so the server-rendered HTML is deterministic — picking
+  // during render would desync hydration. The note fades in once a
+  // phrase lands, which also masks the swap on a re-roll.
+  const [phrase, setPhrase] = useState<string | null>(null);
+
+  useEffect(() => {
+    const next = pickPhrase(phraseRef.current);
+    phraseRef.current = next;
+    setPhrase(next);
+  }, [rollToken]);
+
   return (
     <>
       <div className="surfer-sec">
@@ -51,7 +96,9 @@ export default function CardioSurfersPlaceholder() {
 
         <div className="surfer-sec-cta">
           <div className="surfer-sec-lead">
-            <p className="surfer-sec-note">grab it and try it yourself</p>
+            <p className="surfer-sec-note" data-ready={phrase ? '' : undefined}>
+              {phrase ?? ' '}
+            </p>
             <svg className="surfer-sec-arrow" viewBox="0 0 220 110" fill="none" aria-hidden="true">
               <path
                 d="M10 14 C 66 4, 132 16, 168 52 C 182 66, 190 82, 193 98"

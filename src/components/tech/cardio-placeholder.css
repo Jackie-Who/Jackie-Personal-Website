@@ -117,6 +117,11 @@
   opacity: 0.95;
 }
 
+/* Anchored by its RIGHT edge, never its left: the phrase is picked at
+   random from a set of differing lengths, and every one has to finish
+   on the arrow's tail. right + text-align:right + nowrap makes length
+   grow leftward only, and rotating about the bottom-right corner keeps
+   the last glyph fixed under the tilt. */
 .surfer-sec-note {
   position: absolute;
   top: 0;
@@ -132,6 +137,14 @@
   color: #ffe0f0;
   transform: rotate(-3deg);
   transform-origin: 100% 100%;
+  /* Hidden until a phrase is chosen on the client, so the swap on a
+     re-roll reads as a deliberate fade rather than a text pop. */
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+
+.surfer-sec-note[data-ready] {
+  opacity: 1;
 }
 
 .surfer-sec-btn {
@@ -242,7 +255,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .surfer-sec-btn {
+  .surfer-sec-btn,
+  .surfer-sec-note {
     transition: none;
   }
 }

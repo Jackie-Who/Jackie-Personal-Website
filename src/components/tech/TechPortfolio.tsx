@@ -52,6 +52,9 @@ export default function TechPortfolio({ initialSection }: Props = {}) {
   const [toast, setToast] = useState<{ message: string; visible: boolean }>(
     () => ({ message: '', visible: false }),
   );
+  // Incremented whenever the Cardio Surfers section takes the viewport;
+  // the placeholder re-rolls its scribbled note on every change.
+  const [surferRoll, setSurferRoll] = useState(0);
 
   useEffect(() => {
     return () => {
@@ -92,8 +95,15 @@ export default function TechPortfolio({ initialSection }: Props = {}) {
    */
   const handleActiveSection = useCallback((id: string) => {
     const path = SECTION_PATHS[id] ?? DEFAULT_PATH;
-    if (window.location.pathname === path) return;
-    window.history.replaceState(window.history.state, '', path);
+    if (window.location.pathname !== path) {
+      window.history.replaceState(window.history.state, '', path);
+    }
+    // Bump the Cardio Surfers aside each time that section takes the
+    // viewport, so its scribbled note is different on a revisit.
+    // Driven from here rather than from an observer inside the section
+    // itself: DotNav observes against the snap container as its root,
+    // which is the only arrangement that fires reliably here.
+    if (id === SURFER_ID) setSurferRoll((n) => n + 1);
   }, []);
 
   /**
@@ -157,7 +167,7 @@ export default function TechPortfolio({ initialSection }: Props = {}) {
           className="tech-snap-section tech-snap-section-surfer"
           aria-label="Cardio Surfers"
         >
-          <CardioSurfersPlaceholder />
+          <CardioSurfersPlaceholder rollToken={surferRoll} />
         </section>
 
         <section

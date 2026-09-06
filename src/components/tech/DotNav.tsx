@@ -30,6 +30,11 @@ export default function DotNav({ sections, containerRef, onActiveChange }: Props
   const onActiveChangeRef = useRef(onActiveChange);
   onActiveChangeRef.current = onActiveChange;
 
+  // The observer fires on every threshold crossing, which during a
+  // scroll means several times for the same winning section. Callers
+  // want the transition, not the noise, so only report actual changes.
+  const lastReportedRef = useRef(-1);
+
   useEffect(() => {
     const root = containerRef.current;
     if (!root) return;
@@ -50,7 +55,10 @@ export default function DotNav({ sections, containerRef, onActiveChange }: Props
         const idx = sections.findIndex((s) => s.id === visible.target.id);
         if (idx >= 0) {
           setActive(idx);
-          onActiveChangeRef.current?.(sections[idx].id);
+          if (idx !== lastReportedRef.current) {
+            lastReportedRef.current = idx;
+            onActiveChangeRef.current?.(sections[idx].id);
+          }
         }
       },
       {
