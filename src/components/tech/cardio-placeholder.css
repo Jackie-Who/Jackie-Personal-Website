@@ -104,8 +104,8 @@
      Defaults below place the note slightly down-left of the arrow's
      tail. Adjust in whole px; anything from 0 to ~40px is sensible.
      ---------------------------------------------------------------- */
-  --note-nudge-x: 16px;
-  --note-nudge-y: 10px;
+  --note-nudge-x: 20px;
+  --note-nudge-y: 40px;
 
   position: relative;
   margin-top: 24px;
