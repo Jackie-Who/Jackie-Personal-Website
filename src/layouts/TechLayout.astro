@@ -1,0 +1,95 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import TechPortfolio from '@/components/tech/TechPortfolio';
+
+/**
+ * Shared shell for every route that renders the tech portfolio.
+ *
+ * /tech, /diva and /surfer are the same scrollable page opened at
+ * different sections — this keeps the head metadata, the noscript
+ * fallback and the body styling in one place so the three routes
+ * can't drift apart.
+ */
+interface Props {
+  title?: string;
+  description?: string;
+  /** Section id to open on. Omit for the top of the page. */
+  initialSection?: string;
+}
+
+const {
+  title = 'Jackie Hu',
+  description = 'IT Engineer at Amazon, AI evaluation, full-stack builder. Resume, projects, and engineering work.',
+  initialSection,
+} = Astro.props;
+---
+
+<BaseLayout title={title} description={description} themeColor="#080c16" bodyClass="tech-body">
+  <!-- Display + handwriting faces used by the Cardio Surfers section.
+       Requested here rather than in BaseLayout so the hero and creative
+       routes don't pay for them. -->
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Luckiest+Guy&display=swap"
+    slot="head"
+  />
+
+  <main id="main">
+    <TechPortfolio initialSection={initialSection} client:load />
+    <noscript>
+      <div class="tech-noscript">
+        <h1>Jackie</h1>
+        <p>IT Engineer / AI Evaluation / Full-Stack Builder</p>
+        <p>
+          <a href="https://github.com/Jackie-Who">GitHub</a>
+          &nbsp;·&nbsp;
+          <a href="mailto:o7.gpt4@gmail.com">Email</a>
+          &nbsp;·&nbsp;
+          <a href="/">back to hero</a>
+        </p>
+      </div>
+    </noscript>
+  </main>
+</BaseLayout>
+
+<style is:global>
+  .tech-body,
+  .tech-body main {
+    margin: 0;
+    padding: 0;
+    background: #080c16;
+  }
+</style>
+
+<style>
+  .tech-noscript {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: #c0d8f0;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    text-align: center;
+    padding: 24px;
+  }
+
+  .tech-noscript h1 {
+    margin: 0;
+    font-weight: 400;
+    font-size: 1.75rem;
+  }
+
+  .tech-noscript p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #6d829e;
+  }
+
+  .tech-noscript a {
+    color: #7ab0d8;
+    text-decoration: none;
+    border-bottom: 0.5px solid rgba(122, 176, 216, 0.4);
+  }
+</style>

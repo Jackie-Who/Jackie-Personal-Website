@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface Section {
   id: string;
@@ -8,15 +8,27 @@ interface Section {
 interface Props {
   sections: Section[];
   containerRef: React.RefObject<HTMLElement | null>;
+  /** Fired whenever a different section takes the viewport. TechPortfolio
+   *  uses this to keep the address bar in sync with what's on screen. */
+  onActiveChange?: (id: string) => void;
 }
 
 /**
  * Right-edge dot nav. Tracks which scroll-snap section owns the
  * viewport via IntersectionObserver and reflects it as the active dot.
  * Clicking a dot scrolls its section into view.
+ *
+ * It's also the single source of truth for "which section is active" —
+ * the URL sync subscribes here rather than running a second observer,
+ * so the dots and the address bar can never disagree.
  */
-export default function DotNav({ sections, containerRef }: Props) {
+export default function DotNav({ sections, containerRef, onActiveChange }: Props) {
   const [active, setActive] = useState(0);
+
+  // Held in a ref so a caller passing an inline function can't tear
+  // down and re-create the observer on every render.
+  const onActiveChangeRef = useRef(onActiveChange);
+  onActiveChangeRef.current = onActiveChange;
 
   useEffect(() => {
     const root = containerRef.current;
@@ -36,7 +48,10 @@ export default function DotNav({ sections, containerRef }: Props) {
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
         if (!visible) return;
         const idx = sections.findIndex((s) => s.id === visible.target.id);
-        if (idx >= 0) setActive(idx);
+        if (idx >= 0) {
+          setActive(idx);
+          onActiveChangeRef.current?.(sections[idx].id);
+        }
       },
       {
         root,
