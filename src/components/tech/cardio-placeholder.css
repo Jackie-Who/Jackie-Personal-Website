@@ -91,7 +91,7 @@
    ------------------------------------------------------------------ */
 .surfer-sec-cta {
   --arrow-w: clamp(96px, 24vw, 130px);
-  --arrow-tail-x: 4.545%;
+  --arrow-tail-x: -7%;
   --arrow-head-x: 87.727%;
 
   /* ---- TUNING KNOBS for the handwritten note ---------------------
@@ -104,8 +104,8 @@
      Defaults below place the note slightly down-left of the arrow's
      tail. Adjust in whole px; anything from 0 to ~40px is sensible.
      ---------------------------------------------------------------- */
-  --note-nudge-x: 20px;
-  --note-nudge-y: 40px;
+  --note-nudge-x: 0px;
+  --note-nudge-y: 0px;
 
   position: relative;
   margin-top: 24px;
@@ -120,7 +120,7 @@
   width: var(--arrow-w);
   /* Room for the note, which is positioned into this padding. Scales
      with --note-nudge-y so pushing the note down can't clip it. */
-  padding-top: calc(1.75em + var(--note-nudge-y));
+  padding-top: calc(0.5em + var(--note-nudge-y));
   transform: translateX(calc(50% - var(--arrow-head-x)));
 }
 
